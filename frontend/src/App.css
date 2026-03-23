@@ -76,10 +76,12 @@
 .message.mine {
   align-self: flex-end; background: var(--mine-bg);
   border-top-right-radius: 2px;
+  margin-left: 20%;
 }
 .message.theirs {
   align-self: flex-start; background: var(--theirs-bg);
   border-top-left-radius: 2px;
+  margin-right: 20%;
 }
 .message-sender {
   display: block; font-size: .78rem; font-weight: 600;
@@ -92,9 +94,15 @@
 }
 .message-text ul { margin: 4px 0 4px 18px; }
 .message-text li { margin: 2px 0; }
+.message-footer {
+  display: flex; justify-content: flex-end; align-items: center;
+  gap: 6px; margin-top: 2px;
+}
 .message-time {
-  display: block; text-align: right; font-size: .7rem;
-  color: var(--text-light); margin-top: 2px;
+  font-size: .7rem; color: var(--text-light); white-space: nowrap;
+}
+.message-read {
+  font-size: .7rem; color: var(--primary-dark); white-space: nowrap;
 }
 
 .chat-error { margin: 0; padding: 6px 16px; }

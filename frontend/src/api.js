@@ -63,3 +63,23 @@ export function createBijdrage(gesprekId, bijdragerId, tekst) {
     }),
   });
 }
+
+/**
+ * Registreer dat een deelnemer een bijdrage heeft gelezen
+ * (POST /gesprekken/:gesprekId/bijdragen/:bijdrageId/lezingen).
+ * Het tijdstip (gelezenOp) wordt automatisch op nu gezet.
+ */
+export function createLezing(gesprekId, bijdrageId, lezerId) {
+  return fetchJSON(
+    `/gesprekken/${encodeURIComponent(gesprekId)}/bijdragen/${encodeURIComponent(bijdrageId)}/lezingen`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        lezerId,
+        gelezenOp: new Date().toISOString(),
+      }),
+    }
+  );
+}
+
+

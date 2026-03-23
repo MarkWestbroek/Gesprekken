@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { listBijdragen, createBijdrage } from '../api';
+import { listBijdragen, createBijdrage, createLezing } from '../api';
 import { formatMessage } from '../formatMessage';
 
 /**
@@ -23,11 +23,39 @@ export default function ChatView({ user, gesprek, onBack }) {
   const [error, setError] = useState(null);
   const endRef = useRef(null);
   const inputRef = useRef(null);
+  // Bijhouden welke bijdrage-IDs al als gelezen geregistreerd zijn in deze sessie,
+  // zodat we de API niet onnodig vaker aanroepen dan nodig.
+  const markedRef = useRef(new Set());
 
-  /** Haal bijdragen op van de API */
+  /**
+   * Registreer lezingen voor alle berichten die:
+   *   - niet van de huidige gebruiker zelf zijn, én
+   *   - nog geen lezing hebben van de huidige gebruiker.
+   * Fouten worden genegeerd (fire-and-forget).
+   */
+  const markAsRead = (geladen) => {
+    geladen.forEach((b) => {
+      if (
+        b.bijdragerId !== user.id &&
+        !markedRef.current.has(b.id) &&
+        !b.lezingen?.some((l) => l.lezerId === user.id)
+      ) {
+        markedRef.current.add(b.id);
+        createLezing(gesprek.id, b.id, user.id).catch(() => {
+          // Verwijder uit de set zodat het later opnieuw geprobeerd kan worden
+          markedRef.current.delete(b.id);
+        });
+      }
+    });
+  };
+
+  /** Haal bijdragen op van de API en markeer ongelezen berichten */
   const loadBijdragen = () =>
     listBijdragen(gesprek.id)
-      .then(setBijdragen)
+      .then((data) => {
+        setBijdragen(data);
+        markAsRead(data);
+      })
       .catch((e) => setError(e.message));
 
   // Laad bijdragen bij openen en poll elke 3 seconden voor nieuwe berichten
@@ -121,7 +149,15 @@ export default function ChatView({ user, gesprek, onBack }) {
                   className="message-text"
                   dangerouslySetInnerHTML={{ __html: formatMessage(b.tekst) }}
                 />
-                <span className="message-time">{formatTime(b.geleverd)}</span>
+                <div className="message-footer">
+                  <span className="message-time">{formatTime(b.geleverd)}</span>
+                  {/* Toon leesbevestigingen alleen onder eigen berichten */}
+                  {isMine && b.lezingen && b.lezingen.length > 0 && (
+                    <span className="message-read">
+                      ✓✓ {b.lezingen.map((l) => l.lezer?.naam || 'Onbekend').join(', ')}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           );
