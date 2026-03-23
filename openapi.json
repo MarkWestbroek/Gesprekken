@@ -1,0 +1,782 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Gesprekken API",
+    "description": "REST API voor het beheren van gesprekken, deelnemers en bijdragen. Conform de NLGov REST API Design Rules (ADR).",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Gesprekken API Beheer"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080/v1",
+      "description": "Lokale ontwikkelomgeving"
+    }
+  ],
+  "paths": {
+    "/gesprekken": {
+      "get": {
+        "summary": "Haal alle gesprekken op",
+        "operationId": "listGesprekken",
+        "tags": ["Gesprekken"],
+        "responses": {
+          "200": {
+            "description": "Lijst van gesprekken",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Gesprek" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Maak een nieuw gesprek aan",
+        "operationId": "createGesprek",
+        "tags": ["Gesprekken"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateGesprekInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Gesprek aangemaakt",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Gesprek" }
+              }
+            }
+          },
+          "400": {
+            "description": "Ongeldige invoer",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetail" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gesprekken/{gesprekId}": {
+      "parameters": [
+        { "$ref": "#/components/parameters/gesprekId" }
+      ],
+      "get": {
+        "summary": "Haal een enkel gesprek op met deelnames en bijdragen",
+        "operationId": "getGesprek",
+        "tags": ["Gesprekken"],
+        "responses": {
+          "200": {
+            "description": "Het gevraagde gesprek",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/GesprekDetail" }
+              }
+            }
+          },
+          "404": {
+            "description": "Gesprek niet gevonden",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetail" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Verwijder een gesprek",
+        "operationId": "deleteGesprek",
+        "tags": ["Gesprekken"],
+        "responses": {
+          "204": { "description": "Gesprek verwijderd" },
+          "404": {
+            "description": "Gesprek niet gevonden",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetail" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gespreksdeelnemers": {
+      "get": {
+        "summary": "Haal alle gespreksdeelnemers op",
+        "operationId": "listGespreksdeelnemers",
+        "tags": ["Gespreksdeelnemers"],
+        "responses": {
+          "200": {
+            "description": "Lijst van gespreksdeelnemers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Gespreksdeelnemer" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Registreer een nieuwe gespreksdeelnemer",
+        "operationId": "createGespreksdeelnemer",
+        "tags": ["Gespreksdeelnemers"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateGespreksdeelnemerInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Gespreksdeelnemer aangemaakt",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Gespreksdeelnemer" }
+              }
+            }
+          },
+          "400": {
+            "description": "Ongeldige invoer",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetail" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gespreksdeelnemers/{deelnemerId}": {
+      "parameters": [
+        { "$ref": "#/components/parameters/deelnemerId" }
+      ],
+      "get": {
+        "summary": "Haal een enkele gespreksdeelnemer op",
+        "operationId": "getGespreksdeelnemer",
+        "tags": ["Gespreksdeelnemers"],
+        "responses": {
+          "200": {
+            "description": "De gevraagde gespreksdeelnemer",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Gespreksdeelnemer" }
+              }
+            }
+          },
+          "404": {
+            "description": "Gespreksdeelnemer niet gevonden",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetail" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Verwijder een gespreksdeelnemer",
+        "operationId": "deleteGespreksdeelnemer",
+        "tags": ["Gespreksdeelnemers"],
+        "responses": {
+          "204": { "description": "Gespreksdeelnemer verwijderd" },
+          "404": {
+            "description": "Gespreksdeelnemer niet gevonden",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetail" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gesprekken/{gesprekId}/deelnames": {
+      "parameters": [
+        { "$ref": "#/components/parameters/gesprekId" }
+      ],
+      "get": {
+        "summary": "Haal alle deelnames op voor een gesprek",
+        "operationId": "listDeelnames",
+        "tags": ["Deelnames"],
+        "responses": {
+          "200": {
+            "description": "Lijst van deelnames",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/GesprekDeelname" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Voeg een deelnemer toe aan een gesprek",
+        "operationId": "createDeelname",
+        "tags": ["Deelnames"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateDeelnameInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Deelname aangemaakt",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/GesprekDeelname" }
+              }
+            }
+          },
+          "400": {
+            "description": "Ongeldige invoer",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetail" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gesprekken/{gesprekId}/deelnames/{deelnameId}": {
+      "parameters": [
+        { "$ref": "#/components/parameters/gesprekId" },
+        { "$ref": "#/components/parameters/deelnameId" }
+      ],
+      "patch": {
+        "summary": "Werk een deelname bij (bijv. einde instellen)",
+        "operationId": "updateDeelname",
+        "tags": ["Deelnames"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateDeelnameInput" }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "Deelname bijgewerkt" },
+          "404": {
+            "description": "Deelname niet gevonden",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetail" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gesprekken/{gesprekId}/bijdragen": {
+      "parameters": [
+        { "$ref": "#/components/parameters/gesprekId" }
+      ],
+      "get": {
+        "summary": "Haal alle bijdragen op voor een gesprek",
+        "operationId": "listBijdragen",
+        "tags": ["Gespreksbijdragen"],
+        "responses": {
+          "200": {
+            "description": "Lijst van bijdragen",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Gespreksbijdrage" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Voeg een bijdrage toe aan een gesprek",
+        "operationId": "createBijdrage",
+        "tags": ["Gespreksbijdragen"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateBijdrageInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Bijdrage aangemaakt",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Gespreksbijdrage" }
+              }
+            }
+          },
+          "400": {
+            "description": "Ongeldige invoer",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetail" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gesprekken/{gesprekId}/bijdragen/{bijdrageId}": {
+      "parameters": [
+        { "$ref": "#/components/parameters/gesprekId" },
+        { "$ref": "#/components/parameters/bijdrageId" }
+      ],
+      "get": {
+        "summary": "Haal een enkele bijdrage op met lezingen",
+        "operationId": "getBijdrage",
+        "tags": ["Gespreksbijdragen"],
+        "responses": {
+          "200": {
+            "description": "De gevraagde bijdrage",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Gespreksbijdrage" }
+              }
+            }
+          },
+          "404": {
+            "description": "Bijdrage niet gevonden",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetail" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gesprekken/{gesprekId}/bijdragen/{bijdrageId}/lezingen": {
+      "parameters": [
+        { "$ref": "#/components/parameters/gesprekId" },
+        { "$ref": "#/components/parameters/bijdrageId" }
+      ],
+      "get": {
+        "summary": "Haal alle lezingen op voor een bijdrage",
+        "operationId": "listLezingen",
+        "tags": ["Lezingen"],
+        "responses": {
+          "200": {
+            "description": "Lijst van lezingen",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/BijdrageLezing" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Registreer dat een deelnemer een bijdrage heeft gelezen",
+        "operationId": "createLezing",
+        "tags": ["Lezingen"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateLezingInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Lezing geregistreerd",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/BijdrageLezing" }
+              }
+            }
+          },
+          "400": {
+            "description": "Ongeldige invoer",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetail" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "gesprekId": {
+        "name": "gesprekId",
+        "in": "path",
+        "required": true,
+        "description": "Unieke identifier (UUID) van het gesprek",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "deelnemerId": {
+        "name": "deelnemerId",
+        "in": "path",
+        "required": true,
+        "description": "Unieke identifier (UUID) van de gespreksdeelnemer",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "deelnameId": {
+        "name": "deelnameId",
+        "in": "path",
+        "required": true,
+        "description": "Unieke identifier (UUID) van de deelname",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "bijdrageId": {
+        "name": "bijdrageId",
+        "in": "path",
+        "required": true,
+        "description": "Unieke identifier (UUID) van de bijdrage",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "schemas": {
+      "ProblemDetail": {
+        "type": "object",
+        "description": "Foutbericht conform RFC 9457 (Problem Details for HTTP APIs)",
+        "required": ["status", "title", "detail"],
+        "properties": {
+          "status": {
+            "type": "integer",
+            "description": "HTTP-statuscode"
+          },
+          "title": {
+            "type": "string",
+            "description": "Korte samenvatting van het probleem"
+          },
+          "detail": {
+            "type": "string",
+            "description": "Gedetailleerde uitleg van het probleem"
+          }
+        }
+      },
+      "Gesprek": {
+        "type": "object",
+        "description": "Een gesprek (conversatie) met een onderwerp en tijdsperiode",
+        "required": ["id", "onderwerp", "aanvang"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unieke identifier van het gesprek"
+          },
+          "onderwerp": {
+            "type": "string",
+            "description": "Onderwerp van het gesprek"
+          },
+          "aanvang": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Moment van aanvang van het gesprek (RFC 9557 / ISO 8601)"
+          },
+          "einde": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Moment van einde van het gesprek (optioneel)"
+          },
+          "deelnames": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/GesprekDeelname" },
+            "description": "Deelnames aan dit gesprek"
+          }
+        }
+      },
+      "GesprekDetail": {
+        "type": "object",
+        "description": "Een gesprek met volledige details: deelnames, bijdragen en lezingen",
+        "allOf": [
+          { "$ref": "#/components/schemas/Gesprek" },
+          {
+            "type": "object",
+            "properties": {
+              "bijdragen": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/Gespreksbijdrage" },
+                "description": "Bijdragen binnen dit gesprek"
+              }
+            }
+          }
+        ]
+      },
+      "CreateGesprekInput": {
+        "type": "object",
+        "description": "Invoer voor het aanmaken van een gesprek",
+        "required": ["onderwerp", "aanvang"],
+        "properties": {
+          "onderwerp": {
+            "type": "string",
+            "description": "Onderwerp van het gesprek"
+          },
+          "aanvang": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Moment van aanvang"
+          },
+          "einde": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Moment van einde (optioneel)"
+          }
+        }
+      },
+      "Gespreksdeelnemer": {
+        "type": "object",
+        "description": "Een persoon of actor die kan deelnemen aan gesprekken",
+        "required": ["id", "naam", "referentie"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unieke identifier van de deelnemer"
+          },
+          "naam": {
+            "type": "string",
+            "description": "Naam van de deelnemer"
+          },
+          "referentie": {
+            "type": "string",
+            "format": "uri",
+            "description": "URN die de deelnemer extern identificeert (bijv. urn:nl:bnr:123456)"
+          }
+        }
+      },
+      "CreateGespreksdeelnemerInput": {
+        "type": "object",
+        "description": "Invoer voor het registreren van een deelnemer",
+        "required": ["naam", "referentie"],
+        "properties": {
+          "naam": {
+            "type": "string",
+            "description": "Naam van de deelnemer"
+          },
+          "referentie": {
+            "type": "string",
+            "format": "uri",
+            "description": "URN-referentie van de deelnemer"
+          }
+        }
+      },
+      "GesprekDeelname": {
+        "type": "object",
+        "description": "Materiële meer-op-meer relatie (associatieklasse) tussen Gesprek en Gespreksdeelnemer, met aanvang en optioneel einde",
+        "required": ["id", "gesprekId", "deelnemerId", "aanvang"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unieke identifier van de deelname"
+          },
+          "gesprekId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID van het gesprek"
+          },
+          "deelnemerId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID van de gespreksdeelnemer"
+          },
+          "aanvang": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Moment van aanvang van deze deelname"
+          },
+          "einde": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Moment van einde van deze deelname (optioneel)"
+          },
+          "deelnemer": {
+            "$ref": "#/components/schemas/Gespreksdeelnemer",
+            "description": "De deelnemer (ingesloten bij ophalen)"
+          }
+        }
+      },
+      "CreateDeelnameInput": {
+        "type": "object",
+        "description": "Invoer voor het toevoegen van een deelnemer aan een gesprek",
+        "required": ["deelnemerId", "aanvang"],
+        "properties": {
+          "deelnemerId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID van de gespreksdeelnemer"
+          },
+          "aanvang": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Moment van aanvang van deelname"
+          },
+          "einde": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Moment van einde van deelname (optioneel)"
+          }
+        }
+      },
+      "UpdateDeelnameInput": {
+        "type": "object",
+        "description": "Invoer voor het bijwerken van een deelname (bijv. einde registreren)",
+        "properties": {
+          "einde": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Moment van einde van de deelname"
+          }
+        }
+      },
+      "Gespreksbijdrage": {
+        "type": "object",
+        "description": "Een bijdrage (bericht) binnen een gesprek, geleverd door één deelnemer. De tekst is in Markdown-formaat.",
+        "required": ["id", "gesprekId", "bijdragerId", "geleverd", "tekst"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unieke identifier van de bijdrage"
+          },
+          "gesprekId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID van het gesprek waarbinnen de bijdrage is geleverd"
+          },
+          "bijdragerId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID van de deelnemer die de bijdrage heeft geleverd"
+          },
+          "geleverd": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Moment waarop de bijdrage is geleverd"
+          },
+          "tekst": {
+            "type": "string",
+            "contentMediaType": "text/markdown",
+            "description": "Inhoud van de bijdrage in Markdown-formaat"
+          },
+          "bijdrager": {
+            "$ref": "#/components/schemas/Gespreksdeelnemer",
+            "description": "De bijdrager (ingesloten bij ophalen)"
+          },
+          "lezingen": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/BijdrageLezing" },
+            "description": "Lezingen van deze bijdrage door andere deelnemers"
+          }
+        }
+      },
+      "CreateBijdrageInput": {
+        "type": "object",
+        "description": "Invoer voor het toevoegen van een bijdrage aan een gesprek",
+        "required": ["bijdragerId", "geleverd", "tekst"],
+        "properties": {
+          "bijdragerId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID van de deelnemer die de bijdrage levert"
+          },
+          "geleverd": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Moment van levering"
+          },
+          "tekst": {
+            "type": "string",
+            "contentMediaType": "text/markdown",
+            "description": "Markdown-tekst van de bijdrage"
+          }
+        }
+      },
+      "BijdrageLezing": {
+        "type": "object",
+        "description": "Registratie dat een deelnemer (niet de bijdrager) een bijdrage heeft gelezen",
+        "required": ["id", "bijdrageId", "lezerId", "gelezenOp"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unieke identifier van de lezing"
+          },
+          "bijdrageId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID van de gelezen bijdrage"
+          },
+          "lezerId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID van de deelnemer die de bijdrage heeft gelezen"
+          },
+          "gelezenOp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Moment waarop de bijdrage is gelezen"
+          },
+          "lezer": {
+            "$ref": "#/components/schemas/Gespreksdeelnemer",
+            "description": "De lezer (ingesloten bij ophalen)"
+          }
+        }
+      },
+      "CreateLezingInput": {
+        "type": "object",
+        "description": "Invoer voor het registreren van een lezing",
+        "required": ["lezerId", "gelezenOp"],
+        "properties": {
+          "lezerId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID van de deelnemer die leest"
+          },
+          "gelezenOp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Moment van lezen"
+          }
+        }
+      }
+    }
+  }
+}

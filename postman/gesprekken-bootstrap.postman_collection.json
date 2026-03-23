@@ -1,0 +1,342 @@
+{
+  "info": {
+    "_postman_id": "d4da67d4-b47d-41e2-aedc-9e8f1f6df001",
+    "name": "Gesprekken API - Bootstrap",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Kleine opstartset requests voor de Gesprekken API. Maakt twee eerste deelnemers aan: medewerker en inwoner."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/v1"
+    },
+    {
+      "key": "medewerkerId",
+      "value": ""
+    },
+    {
+      "key": "inwonerId",
+      "value": ""
+    },
+    {
+      "key": "gesprekId",
+      "value": ""
+    },
+    {
+      "key": "bijdrageId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Bootstrap deelnemers",
+      "item": [
+        {
+          "name": "Maak deelnemer medewerker",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"naam\": \"medewerker\",\n  \"referentie\": \"urn:gesprekken:deelnemer:medewerker\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/gespreksdeelnemers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "gespreksdeelnemers"
+              ]
+            },
+            "description": "Maakt de eerste deelnemer 'medewerker' aan."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  var data = pm.response.json();",
+                  "  if (data && data.id) {",
+                  "    pm.collectionVariables.set('medewerkerId', data.id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Maak deelnemer inwoner",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"naam\": \"inwoner\",\n  \"referentie\": \"urn:gesprekken:deelnemer:inwoner\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/gespreksdeelnemers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "gespreksdeelnemers"
+              ]
+            },
+            "description": "Maakt de eerste deelnemer 'inwoner' aan."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  var data = pm.response.json();",
+                  "  if (data && data.id) {",
+                  "    pm.collectionVariables.set('inwonerId', data.id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Controleer deelnemerslijst",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/gespreksdeelnemers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "gespreksdeelnemers"
+              ]
+            },
+            "description": "Haalt de lijst met gespreksdeelnemers op om de bootstrap te controleren."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Bootstrap gesprek",
+      "item": [
+        {
+          "name": "Maak eerste gesprek",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"onderwerp\": \"Eerste intakegesprek\",\n  \"aanvang\": \"2026-03-23T09:00:00Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/gesprekken",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "gesprekken"
+              ]
+            },
+            "description": "Maakt een eerste gesprek aan en bewaart het gesprek-ID in de collectievariabele gesprekId."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  var data = pm.response.json();",
+                  "  if (data && data.id) {",
+                  "    pm.collectionVariables.set('gesprekId', data.id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Voeg medewerker toe aan gesprek",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deelnemerId\": \"{{medewerkerId}}\",\n  \"aanvang\": \"2026-03-23T09:00:00Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/gesprekken/{{gesprekId}}/deelnames",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "gesprekken",
+                "{{gesprekId}}",
+                "deelnames"
+              ]
+            },
+            "description": "Voegt deelnemer medewerker toe aan het gesprek. Vereist medewerkerId en gesprekId uit eerdere requests."
+          },
+          "response": []
+        },
+        {
+          "name": "Voeg inwoner toe aan gesprek",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deelnemerId\": \"{{inwonerId}}\",\n  \"aanvang\": \"2026-03-23T09:00:00Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/gesprekken/{{gesprekId}}/deelnames",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "gesprekken",
+                "{{gesprekId}}",
+                "deelnames"
+              ]
+            },
+            "description": "Voegt deelnemer inwoner toe aan het gesprek. Vereist inwonerId en gesprekId uit eerdere requests."
+          },
+          "response": []
+        },
+        {
+          "name": "Maak eerste bijdrage van medewerker",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bijdragerId\": \"{{medewerkerId}}\",\n  \"geleverd\": \"2026-03-23T09:05:00Z\",\n  \"tekst\": \"# Welkom\\n\\nDit is de eerste bijdrage van de medewerker.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/gesprekken/{{gesprekId}}/bijdragen",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "gesprekken",
+                "{{gesprekId}}",
+                "bijdragen"
+              ]
+            },
+            "description": "Maakt een eerste bijdrage van medewerker aan en bewaart bijdrageId in de collectievariabele."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  var data = pm.response.json();",
+                  "  if (data && data.id) {",
+                  "    pm.collectionVariables.set('bijdrageId', data.id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Registreer lezing door inwoner",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lezerId\": \"{{inwonerId}}\",\n  \"gelezenOp\": \"2026-03-23T09:06:00Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/gesprekken/{{gesprekId}}/bijdragen/{{bijdrageId}}/lezingen",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "gesprekken",
+                "{{gesprekId}}",
+                "bijdragen",
+                "{{bijdrageId}}",
+                "lezingen"
+              ]
+            },
+            "description": "Registreert dat inwoner de eerste bijdrage heeft gelezen. Vereist inwonerId, gesprekId en bijdrageId."
+          },
+          "response": []
+        },
+        {
+          "name": "Controleer gesprekdetail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/gesprekken/{{gesprekId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "gesprekken",
+                "{{gesprekId}}"
+              ]
+            },
+            "description": "Haalt het volledige gesprek op ter controle van deelnemers, bijdrage en lezing."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
