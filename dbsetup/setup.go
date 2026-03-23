@@ -60,6 +60,7 @@ func CreateTables(db *bun.DB) error {
 
 	models := []interface{}{
 		(*model.Gesprek)(nil),
+		(*model.Deelnemertype)(nil),
 		(*model.Gespreksdeelnemer)(nil),
 		(*model.GesprekDeelname)(nil),
 		(*model.Gespreksbijdrage)(nil),
@@ -78,6 +79,17 @@ func CreateTables(db *bun.DB) error {
 	}
 
 	fmt.Println("Alle tabellen aangemaakt (of bestonden al)")
+
+	// Vul de opzoektabel deelnemertypen met standaardwaarden
+	if err := seedDeelnemertypen(db); err != nil {
+		return fmt.Errorf("seeden deelnemertypen mislukt: %w", err)
+	}
+
+	// Voeg type_id kolom toe aan gespreksdeelnemers als deze nog niet bestaat
+	if err := migrateDeelnemerTypeID(db); err != nil {
+		return fmt.Errorf("migratie type_id mislukt: %w", err)
+	}
+
 	return nil
 }
 
@@ -116,4 +128,64 @@ func extractDBName(dsn string) string {
 		dbPart = dbPart[:idx]
 	}
 	return dbPart
+}
+
+// seedDeelnemertypen vult de opzoektabel met de standaard deelnemertypen
+// als deze nog niet bestaan. Gebruikt ON CONFLICT DO NOTHING.
+func seedDeelnemertypen(db *bun.DB) error {
+	ctx := context.Background()
+	typen := []model.Deelnemertype{
+		{Code: "interne_actor", Naam: "Interne actor (medewerker)"},
+		{Code: "partij", Naam: "Partij (externe deelnemer)"},
+	}
+	for _, t := range typen {
+		_, err := db.NewInsert().Model(&t).
+			On("CONFLICT (code) DO NOTHING").
+			Exec(ctx)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// migrateDeelnemerTypeID voegt de type_id kolom toe aan bestaande
+// gespreksdeelnemers-tabellen en vult lege waarden met het standaard
+// type "interne_actor". Idempotent: slaat over als de kolom al bestaat.
+func migrateDeelnemerTypeID(db *bun.DB) error {
+	ctx := context.Background()
+	// Controleer of de kolom al bestaat
+	var exists bool
+	err := db.QueryRowContext(ctx,
+		`SELECT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_name = 'gespreksdeelnemers' AND column_name = 'type_id'
+		)`).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if exists {
+		// Kolom bestaat al; vul eventuele NULLs met het standaard type
+		_, err = db.ExecContext(ctx,
+			`UPDATE gespreksdeelnemers SET type_id = (
+				SELECT id FROM deelnemertypen WHERE code = 'interne_actor' LIMIT 1
+			) WHERE type_id IS NULL`)
+		return err
+	}
+	// Kolom nog niet aanwezig: voeg nullable toe, vul in, maak NOT NULL
+	_, err = db.ExecContext(ctx,
+		`ALTER TABLE gespreksdeelnemers ADD COLUMN type_id uuid REFERENCES deelnemertypen(id)`)
+	if err != nil {
+		return err
+	}
+	_, err = db.ExecContext(ctx,
+		`UPDATE gespreksdeelnemers SET type_id = (
+			SELECT id FROM deelnemertypen WHERE code = 'interne_actor' LIMIT 1
+		)`)
+	if err != nil {
+		return err
+	}
+	_, err = db.ExecContext(ctx,
+		`ALTER TABLE gespreksdeelnemers ALTER COLUMN type_id SET NOT NULL`)
+	return err
 }

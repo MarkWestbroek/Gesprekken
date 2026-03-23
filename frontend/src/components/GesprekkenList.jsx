@@ -10,8 +10,9 @@ import { listGesprekken } from '../api';
  *   user          – de actief gekozen gespreksdeelnemer
  *   onSelect(g)   – callback als een gesprek aangeklikt wordt
  *   onSwitchUser  – callback om terug te gaan naar de UserPicker
+ *   onBeheer      – callback om het beheerscherm te openen
  */
-export default function GesprekkenList({ user, onSelect, onSwitchUser }) {
+export default function GesprekkenList({ user, onSelect, onSwitchUser, onBeheer }) {
   const [gesprekken, setGesprekken] = useState([]);
   const [error, setError] = useState(null);
 
@@ -36,6 +37,9 @@ export default function GesprekkenList({ user, onSelect, onSwitchUser }) {
           <span className="current-user">{user.naam}</span>
           <button className="btn-switch" onClick={onSwitchUser}>
             Wissel gebruiker
+          </button>
+          <button className="btn-switch" onClick={onBeheer}>
+            ⚙ Beheer
           </button>
         </div>
       </header>

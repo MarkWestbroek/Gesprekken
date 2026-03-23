@@ -70,7 +70,12 @@ func Register(r *gin.Engine, h *handlers.Handler) {
 	v1.GET("/gespreksdeelnemers", h.ListGespreksdeelnemers)
 	v1.POST("/gespreksdeelnemers", h.CreateGespreksdeelnemer)
 	v1.GET("/gespreksdeelnemers/:id", h.GetGespreksdeelnemer)
+	v1.PUT("/gespreksdeelnemers/:id", h.UpdateGespreksdeelnemer)
 	v1.DELETE("/gespreksdeelnemers/:id", h.DeleteGespreksdeelnemer)
+
+	// Deelnemertypen (opzoektabel, read-only via API)
+	v1.GET("/deelnemertypen", h.ListDeelnemertypen)
+	v1.GET("/deelnemertypen/:id", h.GetDeelnemertype)
 
 	// Deelnames (genest onder gesprekken — child resource)
 	v1.GET("/gesprekken/:id/deelnames", h.ListDeelnames)

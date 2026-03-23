@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { listBijdragen, createBijdrage, createLezing } from '../api';
+import { listBijdragen, createBijdrage, createLezing, listDeelnemers, createDeelname } from '../api';
 import { formatMessage } from '../formatMessage';
 
 /**
@@ -11,9 +11,16 @@ import { formatMessage } from '../formatMessage';
  * De gebruiker kan een nieuw bericht typen met WhatsApp-achtige
  * opmaak (*vet*, _cursief_, ~doorhalen~, `code`, - opsomming).
  *
+ * Leesbevestigingen (✓✓) worden automatisch verzonden bij het
+ * openen van berichten en getoond onder eigen berichten.
+ *
+ * Interne actoren (medewerkers) zien een "+ Collega" knop waarmee
+ * ze andere interne actoren aan het gesprek kunnen toevoegen via
+ * een modaal keuzelijst.
+ *
  * Props:
- *   user     – de actief gekozen gespreksdeelnemer
- *   gesprek  – het geselecteerde gesprek-object
+ *   user     – de actief gekozen gespreksdeelnemer (inclusief type)
+ *   gesprek  – het geselecteerde gesprek-object (inclusief deelnames)
  *   onBack   – callback om terug te gaan naar de gesprekkenlijst
  */
 export default function ChatView({ user, gesprek, onBack }) {
@@ -26,6 +33,13 @@ export default function ChatView({ user, gesprek, onBack }) {
   // Bijhouden welke bijdrage-IDs al als gelezen geregistreerd zijn in deze sessie,
   // zodat we de API niet onnodig vaker aanroepen dan nodig.
   const markedRef = useRef(new Set());
+
+  // Collega-erbij modal (alleen voor interne_actor)
+  const [showCollegaModal, setShowCollegaModal] = useState(false);
+  const [beschikbareCollega, setBeschikbareCollega] = useState([]);
+  const [collegaLoading, setCollegaLoading] = useState(false);
+
+  const isInterneActor = user.type?.code === 'interne_actor';
 
   /**
    * Registreer lezingen voor alle berichten die:
@@ -114,6 +128,46 @@ export default function ChatView({ user, gesprek, onBack }) {
   // Bijhouden van de laatst getoonde datum voor datumseparatoren
   let lastDate = '';
 
+  /**
+   * Open het collega-modal: haal alle deelnemers op en filter
+   * op interne_actors die nog niet in dit gesprek zitten.
+   */
+  const openCollegaModal = async () => {
+    setCollegaLoading(true);
+    setShowCollegaModal(true);
+    try {
+      const alleDeelnemers = await listDeelnemers();
+      // Verzamel IDs van deelnemers die al in dit gesprek zitten
+      const alInGesprek = new Set(
+        (gesprek.deelnames || []).map((d) => d.deelnemerId)
+      );
+      // Filter: alleen interne actors die er nog niet in zitten
+      const beschikbaar = alleDeelnemers.filter(
+        (d) => d.type?.code === 'interne_actor' && !alInGesprek.has(d.id)
+      );
+      setBeschikbareCollega(beschikbaar);
+    } catch (e) {
+      setError(e.message);
+      setShowCollegaModal(false);
+    } finally {
+      setCollegaLoading(false);
+    }
+  };
+
+  /** Voeg een collega toe aan het gesprek en sluit het modal */
+  const handleAddCollega = async (deelnemerId) => {
+    setCollegaLoading(true);
+    try {
+      await createDeelname(gesprek.id, deelnemerId);
+      // Verwijder uit de beschikbare lijst
+      setBeschikbareCollega((prev) => prev.filter((d) => d.id !== deelnemerId));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setCollegaLoading(false);
+    }
+  };
+
   return (
     <div className="screen chat-view">
       <header className="chat-header">
@@ -124,7 +178,38 @@ export default function ChatView({ user, gesprek, onBack }) {
           <h2>{gesprek.onderwerp}</h2>
           <span className="chat-subtitle">{user.naam}</span>
         </div>
+        {isInterneActor && (
+          <button className="btn-collega" onClick={openCollegaModal}>
+            + Collega
+          </button>
+        )}
       </header>
+
+      {/* Modal: collega toevoegen aan gesprek */}
+      {showCollegaModal && (
+        <div className="modal-overlay" onClick={() => setShowCollegaModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Collega erbij</h3>
+            {collegaLoading && <p className="empty">Laden…</p>}
+            {!collegaLoading && beschikbareCollega.length === 0 && (
+              <p className="empty">Geen beschikbare collega's gevonden.</p>
+            )}
+            <ul className="collega-list">
+              {beschikbareCollega.map((d) => (
+                <li key={d.id}>
+                  <button onClick={() => handleAddCollega(d.id)} disabled={collegaLoading}>
+                    <span className="user-name">{d.naam}</span>
+                    <span className="user-ref">{d.referentie}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button className="btn-close-modal" onClick={() => setShowCollegaModal(false)}>
+              Sluiten
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="messages">
         {bijdragen.map((b) => {

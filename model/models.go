@@ -21,14 +21,29 @@ type Gesprek struct {
 	Bijdragen []Gespreksbijdrage `bun:"rel:has-many,join:id=gesprek_id" json:"bijdragen,omitempty"`
 }
 
+// Deelnemertype is een opzoektabel die het type deelnemer classificeert.
+// Voorbeelden: "interne_actor" (medewerker) en "partij" (externe deelnemer).
+type Deelnemertype struct {
+	bun.BaseModel `bun:"table:deelnemertypen,alias:dt"`
+
+	ID   uuid.UUID `bun:"id,pk,type:uuid,default:gen_random_uuid()" json:"id"`
+	Code string    `bun:"code,notnull,unique"                       json:"code"`
+	Naam string    `bun:"naam,notnull"                               json:"naam"`
+}
+
 // Gespreksdeelnemer is een persoon/actor die kan deelnemen aan gesprekken.
 // Referentie is een URN die de deelnemer uniek identificeert buiten dit systeem.
+// TypeID verwijst naar het Deelnemertype (interne_actor of partij).
 type Gespreksdeelnemer struct {
 	bun.BaseModel `bun:"table:gespreksdeelnemers,alias:gd"`
 
 	ID         uuid.UUID `bun:"id,pk,type:uuid,default:gen_random_uuid()" json:"id"`
 	Naam       string    `bun:"naam,notnull"                               json:"naam"`
 	Referentie string    `bun:"referentie,notnull"                         json:"referentie"`
+	TypeID     uuid.UUID `bun:"type_id,notnull,type:uuid"                  json:"typeId"`
+
+	// Navigatie
+	Type *Deelnemertype `bun:"rel:belongs-to,join:type_id=id" json:"type,omitempty"`
 }
 
 // GesprekDeelname is de associatieklasse tussen Gesprek en Gespreksdeelnemer.

@@ -7,8 +7,9 @@ import { listDeelnemers } from '../api';
  *
  * Props:
  *   onSelect(deelnemer) – callback als een deelnemer gekozen wordt
+ *   onBeheer            – callback om het beheerscherm te openen
  */
-export default function UserPicker({ onSelect }) {
+export default function UserPicker({ onSelect, onBeheer }) {
   const [deelnemers, setDeelnemers] = useState([]);
   const [error, setError] = useState(null);
 
@@ -33,6 +34,9 @@ export default function UserPicker({ onSelect }) {
           </li>
         ))}
       </ul>
+      <button className="btn-beheer" onClick={onBeheer}>
+        ⚙ Deelnemers beheren
+      </button>
     </div>
   );
 }

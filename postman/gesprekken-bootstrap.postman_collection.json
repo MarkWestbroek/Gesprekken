@@ -25,12 +25,55 @@
     {
       "key": "bijdrageId",
       "value": ""
+    },
+    {
+      "key": "interneActorTypeId",
+      "value": ""
+    },
+    {
+      "key": "partijTypeId",
+      "value": ""
     }
   ],
   "item": [
     {
       "name": "Bootstrap deelnemers",
       "item": [
+        {
+          "name": "Haal deelnemertypen op",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/deelnemertypen",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "deelnemertypen"
+              ]
+            },
+            "description": "Haalt de opzoektabel met deelnemertypen op en bewaart de type-IDs voor interne_actor en partij in collectievariabelen."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  var data = pm.response.json();",
+                  "  data.forEach(function(t) {",
+                  "    if (t.code === 'interne_actor') pm.collectionVariables.set('interneActorTypeId', t.id);",
+                  "    if (t.code === 'partij') pm.collectionVariables.set('partijTypeId', t.id);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
         {
           "name": "Maak deelnemer medewerker",
           "request": {
@@ -43,7 +86,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"naam\": \"medewerker\",\n  \"referentie\": \"urn:gesprekken:deelnemer:medewerker\"\n}"
+              "raw": "{\n  \"naam\": \"medewerker\",\n  \"referentie\": \"urn:gesprekken:deelnemer:medewerker\",\n  \"typeId\": \"{{interneActorTypeId}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/gespreksdeelnemers",
@@ -86,7 +129,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"naam\": \"inwoner\",\n  \"referentie\": \"urn:gesprekken:deelnemer:inwoner\"\n}"
+              "raw": "{\n  \"naam\": \"inwoner\",\n  \"referentie\": \"urn:gesprekken:deelnemer:inwoner\",\n  \"typeId\": \"{{partijTypeId}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/gespreksdeelnemers",

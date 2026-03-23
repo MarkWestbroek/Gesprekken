@@ -82,4 +82,46 @@ export function createLezing(gesprekId, bijdrageId, lezerId) {
   );
 }
 
+/** Haal alle deelnemertypen op (GET /deelnemertypen). */
+export function listDeelnemertypen() {
+  return fetchJSON('/deelnemertypen');
+}
+
+/**
+ * Voeg een deelnemer toe aan een gesprek (POST /gesprekken/:id/deelnames).
+ * Het aanvangstijdstip wordt automatisch op nu gezet.
+ */
+export function createDeelname(gesprekId, deelnemerId) {
+  return fetchJSON(`/gesprekken/${encodeURIComponent(gesprekId)}/deelnames`, {
+    method: 'POST',
+    body: JSON.stringify({
+      deelnemerId,
+      aanvang: new Date().toISOString(),
+    }),
+  });
+}
+
+/** Maak een nieuwe gespreksdeelnemer aan (POST /gespreksdeelnemers). */
+export function createDeelnemer(naam, referentie, typeId) {
+  return fetchJSON('/gespreksdeelnemers', {
+    method: 'POST',
+    body: JSON.stringify({ naam, referentie, typeId }),
+  });
+}
+
+/** Werk een bestaande gespreksdeelnemer bij (PUT /gespreksdeelnemers/:id). */
+export function updateDeelnemer(id, naam, referentie, typeId) {
+  return fetchJSON(`/gespreksdeelnemers/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ naam, referentie, typeId }),
+  });
+}
+
+/** Verwijder een gespreksdeelnemer (DELETE /gespreksdeelnemers/:id). */
+export function deleteDeelnemer(id) {
+  return fetchJSON(`/gespreksdeelnemers/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+}
+
 

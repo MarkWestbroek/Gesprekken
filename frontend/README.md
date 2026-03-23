@@ -11,6 +11,8 @@ Een eenvoudige chat-frontend gebouwd met **React** en **Vite** die communiceert 
    - Automatisch scrollen naar het nieuwste bericht
    - Polling elke 3 seconden voor nieuwe berichten
    - Enter verstuurt, Shift+Enter voor een nieuwe regel
+   - Leesbevestigingen (✓✓) onder eigen berichten
+4. **Collega erbij** - medewerkers (type `interne_actor`) zien een "+ Collega" knop in de chat-header waarmee ze een andere interne actor aan het gesprek kunnen toevoegen. Een modaal venster toont alleen collega's die nog niet deelnemen.
 
 ## Rich text opmaak
 
@@ -62,7 +64,10 @@ Alle `/v1/*` requests worden door de Vite dev-server doorgestuurd naar `http://l
 
 | Methode | Endpoint | Doel |
 |---|---|---|
-| GET | `/v1/gespreksdeelnemers` | Lijst van alle deelnemers |
+| GET | `/v1/gespreksdeelnemers` | Lijst van alle deelnemers (inclusief type) |
 | GET | `/v1/gesprekken` | Lijst van alle gesprekken (met deelnames) |
 | GET | `/v1/gesprekken/:id/bijdragen` | Bijdragen (berichten) van een gesprek |
 | POST | `/v1/gesprekken/:id/bijdragen` | Nieuw bericht versturen |
+| POST | `/v1/gesprekken/:id/bijdragen/:bijdrageId/lezingen` | Leesbevestiging registreren |
+| GET | `/v1/deelnemertypen` | Lijst van deelnemertypen (voor collega-filter) |
+| POST | `/v1/gesprekken/:id/deelnames` | Collega toevoegen aan een gesprek |

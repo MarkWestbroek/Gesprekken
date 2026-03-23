@@ -8,17 +8,22 @@ REST API voor het registreren en raadplegen van **gesprekken**, de **deelnemers*
 
 ### Domein
 
-Het systeem beheert drie kernbegrippen:
+Het systeem beheert vier kernbegrippen:
 
 | Begrip | Omschrijving |
 |---|---|
 | **Gesprek** | Een conversatie met een onderwerp, een aanvangstijdstip en een optioneel eindtijdstip. Dit is het root-object. |
-| **Gespreksdeelnemer** | Een persoon of actor, geïdentificeerd door een naam en een externe URN-referentie. Bestaat onafhankelijk van gesprekken. |
+| **Deelnemertype** | Opzoektabel die het type deelnemer classificeert: *interne_actor* (medewerker) of *partij* (externe deelnemer). |
+| **Gespreksdeelnemer** | Een persoon of actor, geïdentificeerd door een naam, een externe URN-referentie en een deelnemertype. Bestaat onafhankelijk van gesprekken. |
 | **Gespreksbijdrage** | Een bericht (markdown-tekst) dat door één deelnemer op een bepaald moment binnen een gesprek wordt geleverd. |
 
 ### Relaties
 
 ```
+Deelnemertype (opzoektabel: interne_actor / partij)
+        ▲
+        │ type (1)
+        │
 Gespreksdeelnemer ◄──── GesprekDeelname ────► Gesprek
        (M)            aanvang / einde           (N)
         │
@@ -31,6 +36,7 @@ Gespreksdeelnemer ◄──── GesprekDeelname ────► Gesprek
   BijdrageLezing ──────► Gespreksdeelnemer
 ```
 
+- **Deelnemertype → Gespreksdeelnemer**: elke deelnemer heeft precies één type (verplicht). De opzoektabel bevat `interne_actor` (medewerker) en `partij` (externe deelnemer).
 - **Gesprek ↔ Gespreksdeelnemer**: materiële meer-op-meer relatie via de associatieklasse `GesprekDeelname`. Zowel het moment van aanvang (verplicht) als het moment van einde (optioneel) van de deelname worden vastgelegd.
 - **Gesprek → Gespreksbijdrage**: een gesprek bevat nul of meer bijdragen (1:N).
 - **Gespreksbijdrage → Gespreksdeelnemer**: elke bijdrage heeft precies één bijdrager.
@@ -106,7 +112,8 @@ HTTP Request
 | Tabel | PK | Belangrijke kolommen |
 |---|---|---|
 | `gesprekken` | `id` (UUID) | `onderwerp`, `aanvang` (timestamptz), `einde` (timestamptz, nullable) |
-| `gespreksdeelnemers` | `id` (UUID) | `naam`, `referentie` (URN) |
+| `deelnemertypen` | `id` (UUID) | `code` (unique), `naam` — opzoektabel met standaardwaarden `interne_actor` en `partij` |
+| `gespreksdeelnemers` | `id` (UUID) | `naam`, `referentie` (URN), `type_id` (FK → deelnemertypen) |
 | `gesprek_deelnames` | `id` (UUID) | `gesprek_id` (FK), `deelnemer_id` (FK), `aanvang`, `einde` (nullable) |
 | `gespreksbijdragen` | `id` (UUID) | `gesprek_id` (FK), `bijdrager_id` (FK), `geleverd`, `tekst` |
 | `bijdrage_lezingen` | `id` (UUID) | `bijdrage_id` (FK), `lezer_id` (FK), `gelezen_op` |
@@ -128,13 +135,20 @@ Basis-URL: `http://localhost:8080/v1`
 | `GET` | `/gesprekken/{id}` | Enkel gesprek met deelnames, bijdragen en lezingen |
 | `DELETE` | `/gesprekken/{id}` | Gesprek verwijderen |
 
+### Deelnemertypen (opzoektabel)
+
+| Methode | Pad | Beschrijving |
+|---|---|---|
+| `GET` | `/deelnemertypen` | Alle deelnemertypen ophalen |
+| `GET` | `/deelnemertypen/{id}` | Enkel deelnemertype ophalen |
+
 ### Gespreksdeelnemers
 
 | Methode | Pad | Beschrijving |
 |---|---|---|
-| `GET` | `/gespreksdeelnemers` | Alle deelnemers ophalen |
-| `POST` | `/gespreksdeelnemers` | Nieuwe deelnemer registreren |
-| `GET` | `/gespreksdeelnemers/{id}` | Enkele deelnemer ophalen |
+| `GET` | `/gespreksdeelnemers` | Alle deelnemers ophalen (inclusief type) |
+| `POST` | `/gespreksdeelnemers` | Nieuwe deelnemer registreren (met `typeId`) |
+| `GET` | `/gespreksdeelnemers/{id}` | Enkele deelnemer ophalen (inclusief type) |
 | `DELETE` | `/gespreksdeelnemers/{id}` | Deelnemer verwijderen |
 
 ### Deelnames (genest onder gesprekken)
@@ -231,7 +245,9 @@ De applicatie:
 1. Laadt `.env`
 2. Maakt de database `gesprekken_db` aan (als `AUTO_CREATE_DATABASE=true`)
 3. Maakt alle tabellen aan (`IF NOT EXISTS`)
-4. Start de Gin HTTP-server op poort 8080
+4. Vult de opzoektabel `deelnemertypen` met standaardwaarden (`interne_actor`, `partij`)
+5. Migreert de `type_id` kolom op bestaande `gespreksdeelnemers` (idempotent)
+6. Start de Gin HTTP-server op poort 8080
 
 ### Starten vanuit VS Code
 
@@ -251,14 +267,17 @@ Gebruik in VS Code de Run and Debug view en kies `Gesprekken API (Gin debug)`.
 ### Voorbeeld: een gesprek aanmaken
 
 ```bash
-# Deelnemers registreren
+# Deelnemertypen bekijken
+curl http://localhost:8080/v1/deelnemertypen
+
+# Deelnemers registreren (typeId = UUID van het gewenste deelnemertype)
 curl -X POST http://localhost:8080/v1/gespreksdeelnemers \
   -H "Content-Type: application/json" \
-  -d '{"naam": "Alice", "referentie": "urn:nl:bnr:001"}'
+  -d '{"naam": "Alice", "referentie": "urn:nl:bnr:001", "typeId": "{interneActorId}"}'
 
 curl -X POST http://localhost:8080/v1/gespreksdeelnemers \
   -H "Content-Type: application/json" \
-  -d '{"naam": "Bob", "referentie": "urn:nl:bnr:002"}'
+  -d '{"naam": "Bob", "referentie": "urn:nl:bnr:002", "typeId": "{partijId}"}'
 
 # Gesprek aanmaken
 curl -X POST http://localhost:8080/v1/gesprekken \

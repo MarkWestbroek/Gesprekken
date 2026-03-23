@@ -118,11 +118,46 @@ func (h *Handler) DeleteGesprek(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// ──────────────────── Deelnemertypen (opzoektabel) ────────────────────
+
+// ListDeelnemertypen retourneert alle deelnemertypen (GET /deelnemertypen).
+// Dit is een read-only opzoektabel met waarden als "interne_actor" en "partij".
+func (h *Handler) ListDeelnemertypen(c *gin.Context) {
+	var typen []model.Deelnemertype
+	err := h.DB.NewSelect().Model(&typen).OrderExpr("dt.naam ASC").Scan(c.Request.Context())
+	if err != nil {
+		problemJSON(c, http.StatusInternalServerError, "Interne fout", err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, typen)
+}
+
+// GetDeelnemertype retourneert een enkel deelnemertype op basis van UUID.
+func (h *Handler) GetDeelnemertype(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		problemJSON(c, http.StatusBadRequest, "Ongeldig ID", "Het opgegeven ID is geen geldig UUID.")
+		return
+	}
+	dt := new(model.Deelnemertype)
+	err = h.DB.NewSelect().Model(dt).Where("dt.id = ?", id).Scan(c.Request.Context())
+	if err != nil {
+		problemJSON(c, http.StatusNotFound, "Niet gevonden", "Deelnemertype niet gevonden.")
+		return
+	}
+	c.JSON(http.StatusOK, dt)
+}
+
 // ──────────────────── Gespreksdeelnemers ────────────────────
 
+// ListGespreksdeelnemers retourneert alle gespreksdeelnemers inclusief
+// hun deelnemertype (Relation "Type"), gesorteerd op naam.
 func (h *Handler) ListGespreksdeelnemers(c *gin.Context) {
 	var deelnemers []model.Gespreksdeelnemer
-	err := h.DB.NewSelect().Model(&deelnemers).OrderExpr("gd.naam ASC").Scan(c.Request.Context())
+	err := h.DB.NewSelect().Model(&deelnemers).
+		Relation("Type").
+		OrderExpr("gd.naam ASC").
+		Scan(c.Request.Context())
 	if err != nil {
 		problemJSON(c, http.StatusInternalServerError, "Interne fout", err.Error())
 		return
@@ -130,6 +165,7 @@ func (h *Handler) ListGespreksdeelnemers(c *gin.Context) {
 	c.JSON(http.StatusOK, deelnemers)
 }
 
+// GetGespreksdeelnemer retourneert een enkele deelnemer inclusief type.
 func (h *Handler) GetGespreksdeelnemer(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -137,7 +173,10 @@ func (h *Handler) GetGespreksdeelnemer(c *gin.Context) {
 		return
 	}
 	deelnemer := new(model.Gespreksdeelnemer)
-	err = h.DB.NewSelect().Model(deelnemer).Where("gd.id = ?", id).Scan(c.Request.Context())
+	err = h.DB.NewSelect().Model(deelnemer).
+		Where("gd.id = ?", id).
+		Relation("Type").
+		Scan(c.Request.Context())
 	if err != nil {
 		problemJSON(c, http.StatusNotFound, "Niet gevonden", "Gespreksdeelnemer niet gevonden.")
 		return
@@ -146,8 +185,9 @@ func (h *Handler) GetGespreksdeelnemer(c *gin.Context) {
 }
 
 type CreateGespreksdeelnemerInput struct {
-	Naam       string `json:"naam"       binding:"required"`
-	Referentie string `json:"referentie" binding:"required"`
+	Naam       string    `json:"naam"       binding:"required"`
+	Referentie string    `json:"referentie" binding:"required"`
+	TypeID     uuid.UUID `json:"typeId"     binding:"required"`
 }
 
 func (h *Handler) CreateGespreksdeelnemer(c *gin.Context) {
@@ -159,6 +199,7 @@ func (h *Handler) CreateGespreksdeelnemer(c *gin.Context) {
 	deelnemer := model.Gespreksdeelnemer{
 		Naam:       input.Naam,
 		Referentie: input.Referentie,
+		TypeID:     input.TypeID,
 	}
 	_, err := h.DB.NewInsert().Model(&deelnemer).Exec(c.Request.Context())
 	if err != nil {
@@ -166,6 +207,39 @@ func (h *Handler) CreateGespreksdeelnemer(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, deelnemer)
+}
+
+// UpdateGespreksdeelnemer wijzigt naam, referentie en/of type van een deelnemer (PUT).
+func (h *Handler) UpdateGespreksdeelnemer(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		problemJSON(c, http.StatusBadRequest, "Ongeldig ID", "Het opgegeven ID is geen geldig UUID.")
+		return
+	}
+	var input CreateGespreksdeelnemerInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		problemJSON(c, http.StatusBadRequest, "Ongeldige invoer", err.Error())
+		return
+	}
+	res, err := h.DB.NewUpdate().Model((*model.Gespreksdeelnemer)(nil)).
+		Set("naam = ?", input.Naam).
+		Set("referentie = ?", input.Referentie).
+		Set("type_id = ?", input.TypeID).
+		Where("id = ?", id).
+		Exec(c.Request.Context())
+	if err != nil {
+		problemJSON(c, http.StatusInternalServerError, "Bijwerken mislukt", err.Error())
+		return
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		problemJSON(c, http.StatusNotFound, "Niet gevonden", "Gespreksdeelnemer niet gevonden.")
+		return
+	}
+	// Haal de bijgewerkte deelnemer op met type-relatie
+	deelnemer := new(model.Gespreksdeelnemer)
+	_ = h.DB.NewSelect().Model(deelnemer).Where("gd.id = ?", id).Relation("Type").Scan(c.Request.Context())
+	c.JSON(http.StatusOK, deelnemer)
 }
 
 func (h *Handler) DeleteGespreksdeelnemer(c *gin.Context) {
