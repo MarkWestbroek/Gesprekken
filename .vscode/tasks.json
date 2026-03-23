@@ -39,14 +39,7 @@
     {
       "label": "Stop Gesprekken API (poort 8080)",
       "type": "shell",
-      "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-Command",
-        "$connection = Get-NetTCPConnection -LocalPort 8080 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1; if ($null -ne $connection) { Stop-Process -Id $connection.OwningProcess -Force; Write-Host ('Gestopt: proces ' + $connection.OwningProcess + ' op poort 8080'); } else { Write-Host 'Geen luisterend proces gevonden op poort 8080'; }"
-      ],
+      "command": "lsof -ti:8080 | xargs kill -9 && echo 'Gestopt: proces op poort 8080' || echo 'Geen proces gevonden op poort 8080'",
       "problemMatcher": []
     },
     {
@@ -55,6 +48,62 @@
       "dependsOn": [
         "Stop Gesprekken API (poort 8080)",
         "Start Gesprekken API (zonder debug)"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Start Vite Frontend",
+      "type": "shell",
+      "command": "npm",
+      "args": [
+        "run",
+        "dev"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": false
+      },
+      "problemMatcher": {
+        "owner": "custom",
+        "pattern": [
+          {
+            "regexp": "^(.*)$",
+            "message": 1
+          }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*VITE.*$",
+          "endsPattern": "^.*Local:.*http://localhost.*$"
+        }
+      }
+    },
+    {
+      "label": "Stop Vite Frontend (poort 5173)",
+      "type": "shell",
+      "command": "lsof -ti:5173 | xargs kill -9 && echo 'Gestopt: proces op poort 5173' || echo 'Geen proces gevonden op poort 5173'",
+      "problemMatcher": []
+    },
+    {
+      "label": "Start project (API + Frontend)",
+      "dependsOrder": "parallel",
+      "dependsOn": [
+        "Start Gesprekken API (zonder debug)",
+        "Start Vite Frontend"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Stop project (API + Frontend)",
+      "dependsOrder": "parallel",
+      "dependsOn": [
+        "Stop Gesprekken API (poort 8080)",
+        "Stop Vite Frontend (poort 5173)"
       ],
       "problemMatcher": []
     }
