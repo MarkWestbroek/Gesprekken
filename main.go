@@ -7,6 +7,7 @@ import (
 	"gesprekken/dbsetup"
 	"gesprekken/handlers"
 	"gesprekken/routes"
+	"gesprekken/storage"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -47,6 +48,15 @@ func main() {
 	// Handlers en routes registreren
 	h := handlers.New(db)
 	routes.Register(r, h)
+
+	// Object storage (MinIO) voor documentbijlagen
+	store, err := storage.NewMinIOStorage()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "MinIO verbinding mislukt: %v\n", err)
+		os.Exit(1)
+	}
+	dh := handlers.NewDocumentHandler(db, store)
+	routes.RegisterDocumentRoutes(r, dh)
 
 	// Server starten
 	port := os.Getenv("PORT")

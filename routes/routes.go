@@ -91,3 +91,14 @@ func Register(r *gin.Engine, h *handlers.Handler) {
 	v1.GET("/gesprekken/:id/bijdragen/:bijdrageId/lezingen", h.ListLezingen)
 	v1.POST("/gesprekken/:id/bijdragen/:bijdrageId/lezingen", h.CreateLezing)
 }
+
+// RegisterDocumentRoutes koppelt document-upload/download/metadata routes.
+func RegisterDocumentRoutes(r *gin.Engine, dh *handlers.DocumentHandler) {
+	v1 := r.Group("/v1")
+	v1.Use(corsMiddleware(), versionHeader(), securityHeaders())
+
+	// Documenten
+	v1.POST("/documenten", dh.UploadDocument)
+	v1.GET("/documenten/:id", dh.GetDocumentMetadata)
+	v1.GET("/documenten/:id/download", dh.DownloadDocument)
+}

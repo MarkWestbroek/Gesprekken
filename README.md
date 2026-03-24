@@ -82,6 +82,23 @@ Gesprekken/
 | UUID | [google/uuid](https://github.com/google/uuid) | v1.6 |
 | Configuratie | [godotenv](https://github.com/joho/godotenv) | v1.5 |
 
+### Frontend gedrag
+
+De React/Vite-frontend ondersteunt een chatervaring met een aantal expliciete UI-regels:
+
+- Automatisch scrollen gebeurt alleen zolang de gebruiker onderaan in het berichtenvenster zit.
+- Als de gebruiker omhoog is gescrold, blijft de scrollpositie behouden en verschijnt een knop rechts-onder voor nieuwe berichten.
+- Leesbevestigingen worden alleen geregistreerd voor berichten die daadwerkelijk zichtbaar zijn in de viewport van het chatvenster.
+- Status onder eigen berichten volgt deze betekenis: `✓` = verzonden en opgeslagen via de API, `✓✓` = door minstens één andere deelnemer gelezen.
+- Dubbele vinkjes blijven grijs totdat alle andere deelnemers in het gesprek het bericht hebben gelezen.
+
+### Laatste UX-aanpassingen chat
+
+- Scrollpositie blijft behouden tijdens polling als de gebruiker oudere berichten leest.
+- Nieuwe berichten worden aangekondigd met een knop rechts-onder in plaats van direct in beeld te forceren.
+- Leesbevestigingen volgen zichtbaarheid in de viewport in plaats van alleen het ophalen via polling.
+- Berichtstatus onder eigen berichten gebruikt één of twee vinkjes met grijs/groen onderscheid voor gedeeltelijk of volledig gelezen.
+
 ### Lagen
 
 ```
@@ -117,6 +134,7 @@ HTTP Request
 | `gesprek_deelnames` | `id` (UUID) | `gesprek_id` (FK), `deelnemer_id` (FK), `aanvang`, `einde` (nullable) |
 | `gespreksbijdragen` | `id` (UUID) | `gesprek_id` (FK), `bijdrager_id` (FK), `geleverd`, `tekst` |
 | `bijdrage_lezingen` | `id` (UUID) | `bijdrage_id` (FK), `lezer_id` (FK), `gelezen_op` |
+| `documenten` | `id` (UUID) | `naam`, `bron_type`, `bron_id` (FK), `content_type`, `grootte`, `bucket_key`, `opgeslagen_op`, `bijdrage_id` (FK, nullable) |
 
 Alle ID's zijn UUID's (gegenereerd door PostgreSQL via `gen_random_uuid()`). Alle tijdstempels zijn `timestamptz` (UTC in responses conform ADR).
 
@@ -179,6 +197,14 @@ Basis-URL: `http://localhost:8080/v1`
 | Methode | Pad | Beschrijving |
 |---|---|---|
 | `GET` | `/openapi.json` | OAS 3.1 document (conform ADR `/core/publish-openapi`) |
+
+### Documenten (bijlagen)
+
+| Methode | Pad | Beschrijving |
+|---|---|---|
+| `POST` | `/documenten` | Bestand uploaden (multipart/form-data) |
+| `GET` | `/documenten/{id}` | Metadata van een document |
+| `GET` | `/documenten/{id}/download` | Bestand downloaden (streamed) |
 
 ---
 

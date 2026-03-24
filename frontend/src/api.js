@@ -52,14 +52,16 @@ export function listBijdragen(gesprekId) {
 /**
  * Verstuur een nieuwe bijdrage (bericht) in een gesprek.
  * Het tijdstip (geleverd) wordt automatisch op nu gezet.
+ * Optioneel: bijlageIds koppelt eerder geüploade documenten aan het bericht.
  */
-export function createBijdrage(gesprekId, bijdragerId, tekst) {
+export function createBijdrage(gesprekId, bijdragerId, tekst, bijlageIds = []) {
   return fetchJSON(`/gesprekken/${encodeURIComponent(gesprekId)}/bijdragen`, {
     method: 'POST',
     body: JSON.stringify({
       bijdragerId,
       geleverd: new Date().toISOString(),
       tekst,
+      bijlageIds: bijlageIds.length > 0 ? bijlageIds : undefined,
     }),
   });
 }
@@ -122,6 +124,52 @@ export function deleteDeelnemer(id) {
   return fetchJSON(`/gespreksdeelnemers/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
+}
+
+// ──────────────── Documenten (bijlagen) ────────────────
+
+/** Maximale bestandsgrootte in bytes (25 MB, overeenkomend met backend). */
+export const MAX_FILE_SIZE = 25 * 1024 * 1024;
+
+/** Toegestane MIME-types (overeenkomend met backend). */
+export const ALLOWED_MIME_TYPES = new Set([
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/plain',
+]);
+
+/**
+ * Upload een bestand als document-bijlage.
+ * Geeft { bestandId, opgeslagenOp, bestandUrn, downloadUrl } terug.
+ */
+export async function uploadDocument(file, bronId, brontype = 'gespreksbijlage') {
+  const form = new FormData();
+  form.append('bestand', file);
+  form.append('naam', file.name);
+  form.append('brontype', brontype);
+  form.append('bronId', bronId);
+  form.append('bronUrn', `urn:gesprekken:${brontype}:${bronId}`);
+  form.append('bronUrl', `/v1/gesprekken/${bronId}`);
+
+  const res = await fetch(`${BASE}/documenten`, {
+    method: 'POST',
+    body: form,
+    // Geen Content-Type header: browser zet multipart boundary automatisch
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.detail || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+/** Genereer de download-URL voor een document. */
+export function documentDownloadUrl(bestandId) {
+  return `${BASE}/documenten/${encodeURIComponent(bestandId)}/download`;
 }
 
 

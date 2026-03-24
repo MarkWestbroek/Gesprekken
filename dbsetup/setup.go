@@ -65,6 +65,7 @@ func CreateTables(db *bun.DB) error {
 		(*model.GesprekDeelname)(nil),
 		(*model.Gespreksbijdrage)(nil),
 		(*model.BijdrageLezing)(nil),
+		(*model.Document)(nil),
 	}
 
 	for _, m := range models {
@@ -79,6 +80,12 @@ func CreateTables(db *bun.DB) error {
 	}
 
 	fmt.Println("Alle tabellen aangemaakt (of bestonden al)")
+
+	// Indexes voor documenten lookup
+	_, _ = db.ExecContext(ctx,
+		`CREATE INDEX IF NOT EXISTS idx_documenten_bron ON documenten (bron_type, bron_id)`)
+	_, _ = db.ExecContext(ctx,
+		`CREATE INDEX IF NOT EXISTS idx_documenten_bijdrage ON documenten (bijdrage_id) WHERE bijdrage_id IS NOT NULL`)
 
 	// Vul de opzoektabel deelnemertypen met standaardwaarden
 	if err := seedDeelnemertypen(db); err != nil {

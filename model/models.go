@@ -77,6 +77,27 @@ type Gespreksbijdrage struct {
 	Gesprek   *Gesprek           `bun:"rel:belongs-to,join:gesprek_id=id"  json:"-"`
 	Bijdrager *Gespreksdeelnemer `bun:"rel:belongs-to,join:bijdrager_id=id" json:"bijdrager,omitempty"`
 	Lezingen  []BijdrageLezing   `bun:"rel:has-many,join:id=bijdrage_id"   json:"lezingen,omitempty"`
+	Bijlagen  []Document         `bun:"rel:has-many,join:id=bijdrage_id"   json:"bijlagen,omitempty"`
+}
+
+// Document bevat metadata voor een geüpload bestand in object storage.
+type Document struct {
+	bun.BaseModel `bun:"table:documenten,alias:doc"`
+
+	ID           uuid.UUID  `bun:"id,pk,type:uuid,default:gen_random_uuid()" json:"bestandId"`
+	Naam         string     `bun:"naam,notnull"                               json:"naam"`
+	BronType     string     `bun:"bron_type,notnull"                          json:"brontype"`
+	BronID       uuid.UUID  `bun:"bron_id,notnull,type:uuid"                  json:"bronId"`
+	BronUrn      string     `bun:"bron_urn,notnull"                           json:"bronUrn"`
+	BronUrl      string     `bun:"bron_url,notnull"                           json:"bronUrl"`
+	ContentType  string     `bun:"content_type,notnull"                       json:"contentType"`
+	Grootte      int64      `bun:"grootte,notnull"                            json:"grootte"`
+	BucketKey    string     `bun:"bucket_key,notnull"                         json:"-"`
+	OpgeslagenOp time.Time  `bun:"opgeslagen_op,notnull,type:timestamptz"     json:"opgeslagenOp"`
+	BijdrageID   *uuid.UUID `bun:"bijdrage_id,type:uuid"                     json:"bijdrageId,omitempty"`
+
+	// Navigatie
+	Bijdrage *Gespreksbijdrage `bun:"rel:belongs-to,join:bijdrage_id=id" json:"-"`
 }
 
 // BijdrageLezing registreert dat een deelnemer (niet de bijdrager) een bijdrage heeft gelezen.

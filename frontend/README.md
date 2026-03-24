@@ -8,11 +8,29 @@ Een eenvoudige chat-frontend gebouwd met **React** en **Vite** die communiceert 
 2. **Gesprek kiezen** - bekijk alle gesprekken waar je aan deelneemt, met het onderwerp, de andere deelnemers en de datum.
 3. **Chatten** - messenger-stijl chatvenster:
    - Eigen berichten rechts (groen), berichten van anderen links (wit)
-   - Automatisch scrollen naar het nieuwste bericht
+    - Automatisch scrollen naar het nieuwste bericht zolang je onderaan zit
+    - Als je omhoog scrolt, blijft de scrollpositie staan en verschijnt rechts-onder een badge voor nieuwe berichten
    - Polling elke 3 seconden voor nieuwe berichten
    - Enter verstuurt, Shift+Enter voor een nieuwe regel
-   - Leesbevestigingen (✓✓) onder eigen berichten
+    - Leesbevestigingen alleen voor berichten die echt zichtbaar zijn in het chatvenster
+    - Status onder eigen berichten: `✓` = verzonden/opgeslagen, `✓✓` = gelezen; grijs zolang niet alle andere deelnemers hebben gelezen, accentkleur zodra iedereen het gelezen heeft
 4. **Collega erbij** - medewerkers (type `interne_actor`) zien een "+ Collega" knop in de chat-header waarmee ze een andere interne actor aan het gesprek kunnen toevoegen. Een modaal venster toont alleen collega's die nog niet deelnemen.
+
+## Laatste UX-aanpassingen chat
+
+- Auto-scroll forceert de gebruiker niet meer terug naar beneden tijdens polling.
+- Nieuwe berichten worden rechts-onder aangekondigd met een knop zodra je omhoog bent gescrold.
+- Leesbevestigingen worden alleen geregistreerd voor berichten die zichtbaar zijn in het chatvenster.
+- Berichtstatus gebruikt nu WhatsApp-achtige vinkjes: `✓` voor verzonden en `✓✓` voor gelezen.
+- Dubbele vinkjes blijven grijs totdat alle andere deelnemers het bericht hebben gelezen.
+
+## Leesstatus en scrollgedrag
+
+- De frontend verstuurt geen aparte bezorgbevestiging vanuit clients of devices. Een enkel vinkje (`✓`) betekent daarom: het bericht is succesvol opgeslagen via de API.
+- Dubbele vinkjes (`✓✓`) betekenen: ten minste één andere deelnemer heeft het bericht gelezen.
+- De dubbele vinkjes blijven grijs totdat alle andere actieve deelnemers in het gesprek het bericht hebben gelezen.
+- Leesbevestigingen worden pas geregistreerd wanneer een bericht zichtbaar is binnen de viewport van het chatvenster.
+- Tijdens polling blijft de scrollpositie behouden als je niet onderaan staat. Nieuwe berichten worden dan niet in beeld geforceerd, maar aangekondigd met een knop rechts-onder om naar het nieuwste bericht te springen.
 
 ## Rich text opmaak
 

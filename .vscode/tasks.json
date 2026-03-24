@@ -1,112 +1,124 @@
 {
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "Start Gesprekken API (zonder debug)",
-      "type": "shell",
-      "command": "go",
-      "args": [
-        "run",
-        "main.go"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}",
-        "env": {
-          "GIN_MODE": "release",
-          "BUNDEBUG": "0"
-        }
-      },
-      "isBackground": true,
-      "presentation": {
-        "reveal": "always",
-        "panel": "dedicated",
-        "clear": false
-      },
-      "problemMatcher": {
-        "owner": "custom",
-        "pattern": [
-          {
-            "regexp": "^(.*)$",
-            "message": 1
-          }
-        ],
-        "background": {
-          "activeOnStart": true,
-          "beginsPattern": "^.*$",
-          "endsPattern": "^Gesprekken API gestart op .*$"
-        }
-      }
-    },
-    {
-      "label": "Stop Gesprekken API (poort 8080)",
-      "type": "shell",
-      "command": "lsof -ti:8080 | xargs kill -9 && echo 'Gestopt: proces op poort 8080' || echo 'Geen proces gevonden op poort 8080'",
-      "problemMatcher": []
-    },
-    {
-      "label": "Herstart Gesprekken API",
-      "dependsOrder": "sequence",
-      "dependsOn": [
-        "Stop Gesprekken API (poort 8080)",
-        "Start Gesprekken API (zonder debug)"
-      ],
-      "problemMatcher": []
-    },
-    {
-      "label": "Start Vite Frontend",
-      "type": "shell",
-      "command": "npm",
-      "args": [
-        "run",
-        "dev"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}/frontend"
-      },
-      "isBackground": true,
-      "presentation": {
-        "reveal": "always",
-        "panel": "dedicated",
-        "clear": false
-      },
-      "problemMatcher": {
-        "owner": "custom",
-        "pattern": [
-          {
-            "regexp": "^(.*)$",
-            "message": 1
-          }
-        ],
-        "background": {
-          "activeOnStart": true,
-          "beginsPattern": "^.*VITE.*$",
-          "endsPattern": "^.*Local:.*http://localhost.*$"
-        }
-      }
-    },
-    {
-      "label": "Stop Vite Frontend (poort 5173)",
-      "type": "shell",
-      "command": "lsof -ti:5173 | xargs kill -9 && echo 'Gestopt: proces op poort 5173' || echo 'Geen proces gevonden op poort 5173'",
-      "problemMatcher": []
-    },
-    {
-      "label": "Start project (API + Frontend)",
-      "dependsOrder": "parallel",
-      "dependsOn": [
-        "Start Gesprekken API (zonder debug)",
-        "Start Vite Frontend"
-      ],
-      "problemMatcher": []
-    },
-    {
-      "label": "Stop project (API + Frontend)",
-      "dependsOrder": "parallel",
-      "dependsOn": [
-        "Stop Gesprekken API (poort 8080)",
-        "Stop Vite Frontend (poort 5173)"
-      ],
-      "problemMatcher": []
-    }
-  ]
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Start Gesprekken API (zonder debug)",
+			"type": "shell",
+			"command": "go",
+			"args": [
+				"run",
+				"main.go"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}",
+				"env": {
+					"GIN_MODE": "release",
+					"BUNDEBUG": "0"
+				}
+			},
+			"isBackground": true,
+			"presentation": {
+				"reveal": "always",
+				"panel": "dedicated",
+				"clear": false
+			},
+			"problemMatcher": {
+				"owner": "custom",
+				"pattern": [
+					{
+						"regexp": "^(.*)$",
+						"message": 1
+					}
+				],
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "^.*$",
+					"endsPattern": "^Gesprekken API gestart op .*$"
+				}
+			}
+		},
+		{
+			"label": "Stop Gesprekken API (poort 8080)",
+			"type": "shell",
+			"command": "lsof -ti:8080 | xargs kill -9 && echo 'Gestopt: proces op poort 8080' || echo 'Geen proces gevonden op poort 8080'",
+			"problemMatcher": []
+		},
+		{
+			"label": "Herstart Gesprekken API",
+			"dependsOrder": "sequence",
+			"dependsOn": [
+				"Stop Gesprekken API (poort 8080)",
+				"Start Gesprekken API (zonder debug)"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "Start Vite Frontend",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"dev"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}/frontend"
+			},
+			"isBackground": true,
+			"presentation": {
+				"reveal": "always",
+				"panel": "dedicated",
+				"clear": false
+			},
+			"problemMatcher": {
+				"owner": "custom",
+				"pattern": [
+					{
+						"regexp": "^(.*)$",
+						"message": 1
+					}
+				],
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "^.*VITE.*$",
+					"endsPattern": "^.*Local:.*http://localhost.*$"
+				}
+			}
+		},
+		{
+			"label": "Stop Vite Frontend (poort 5173)",
+			"type": "shell",
+			"command": "lsof -ti:5173 | xargs kill -9 && echo 'Gestopt: proces op poort 5173' || echo 'Geen proces gevonden op poort 5173'",
+			"problemMatcher": []
+		},
+		{
+			"label": "Start project (API + Frontend)",
+			"dependsOrder": "parallel",
+			"dependsOn": [
+				"Start Gesprekken API (zonder debug)",
+				"Start Vite Frontend"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "Stop project (API + Frontend)",
+			"dependsOrder": "parallel",
+			"dependsOn": [
+				"Stop Gesprekken API (poort 8080)",
+				"Stop Vite Frontend (poort 5173)"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "Rebuild Vite Frontend",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"--prefix",
+				"frontend",
+				"run",
+				"build"
+			],
+			"isBackground": false
+		}
+	]
 }

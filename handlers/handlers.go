@@ -361,6 +361,7 @@ func (h *Handler) ListBijdragen(c *gin.Context) {
 	err = h.DB.NewSelect().Model(&bijdragen).
 		Where("gb.gesprek_id = ?", gesprekID).
 		Relation("Bijdrager").
+		Relation("Bijlagen").
 		Relation("Lezingen").
 		Relation("Lezingen.Lezer").
 		OrderExpr("gb.geleverd ASC").
@@ -382,6 +383,7 @@ func (h *Handler) GetBijdrage(c *gin.Context) {
 	err = h.DB.NewSelect().Model(bijdrage).
 		Where("gb.id = ?", bijdrageID).
 		Relation("Bijdrager").
+		Relation("Bijlagen").
 		Relation("Lezingen").
 		Relation("Lezingen.Lezer").
 		Scan(c.Request.Context())
@@ -393,9 +395,10 @@ func (h *Handler) GetBijdrage(c *gin.Context) {
 }
 
 type CreateBijdrageInput struct {
-	BijdragerID uuid.UUID `json:"bijdragerId" binding:"required"`
-	Geleverd    time.Time `json:"geleverd"    binding:"required"`
-	Tekst       string    `json:"tekst"       binding:"required"`
+	BijdragerID uuid.UUID   `json:"bijdragerId" binding:"required"`
+	Geleverd    time.Time   `json:"geleverd"    binding:"required"`
+	Tekst       string      `json:"tekst"       binding:"required"`
+	BijlageIDs  []uuid.UUID `json:"bijlageIds"`
 }
 
 func (h *Handler) CreateBijdrage(c *gin.Context) {
@@ -420,6 +423,16 @@ func (h *Handler) CreateBijdrage(c *gin.Context) {
 		problemJSON(c, http.StatusInternalServerError, "Aanmaken mislukt", err.Error())
 		return
 	}
+
+	// Koppel eventuele bijlagen aan deze bijdrage
+	if len(input.BijlageIDs) > 0 {
+		_, _ = h.DB.NewUpdate().Model((*model.Document)(nil)).
+			Set("bijdrage_id = ?", bijdrage.ID).
+			Where("id IN (?)", bun.In(input.BijlageIDs)).
+			Where("bijdrage_id IS NULL").
+			Exec(c.Request.Context())
+	}
+
 	c.JSON(http.StatusCreated, bijdrage)
 }
 
