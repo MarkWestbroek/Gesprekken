@@ -242,6 +242,35 @@ export default function ChatView({ user, gesprek, onBack }) {
     setPendingFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  /** Plak een afbeelding vanuit het clipboard als pending bijlage */
+  const handlePaste = (e) => {
+    const items = Array.from(e.clipboardData?.items || []);
+    const imageFiles = items
+      .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+      .map((item) => item.getAsFile())
+      .filter(Boolean);
+    if (imageFiles.length === 0) return; // gewone tekst-paste, laat default gedrag
+    e.preventDefault();
+    const validFiles = [];
+    for (const file of imageFiles) {
+      if (file.size > MAX_FILE_SIZE) {
+        setError(`Geplakte afbeelding is te groot (max 25 MB).`);
+        continue;
+      }
+      if (!ALLOWED_MIME_TYPES.has(file.type)) {
+        setError(`Geplakt bestandstype '${file.type}' wordt niet ondersteund.`);
+        continue;
+      }
+      // Clipboard afbeeldingen hebben vaak een generieke naam; geef ze een timestamp
+      const ext = file.type === 'image/png' ? '.png' : file.type === 'image/jpeg' ? '.jpg' : file.type === 'image/gif' ? '.gif' : '.webp';
+      const named = new File([file], `clipboard-${Date.now()}${ext}`, { type: file.type });
+      validFiles.push(named);
+    }
+    if (validFiles.length > 0) {
+      setPendingFiles((prev) => [...prev, ...validFiles]);
+    }
+  };
+
   /** Enter verstuurt, Shift+Enter maakt een nieuwe regel */
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -504,6 +533,7 @@ export default function ChatView({ user, gesprek, onBack }) {
           value={tekst}
           onChange={(e) => setTekst(e.target.value)}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           placeholder="Schrijf een bericht… (Shift+Enter voor nieuwe regel)"
           rows={2}
           disabled={sending}

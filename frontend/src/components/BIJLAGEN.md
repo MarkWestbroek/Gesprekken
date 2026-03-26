@@ -7,14 +7,15 @@ Bijlage-functionaliteit geïntegreerd in de bestaande ChatView composer.
 De chat composer bevat een 📎 (paperclip) knop links van het tekstveld. Hiermee kan de gebruiker:
 
 1. **Bestand selecteren** — opent native file picker (meerdere bestanden mogelijk)
-2. **Preview** — geselecteerde bestanden verschijnen als chips onder het tekstveld
-3. **Verwijderen** — klik ✕ op een chip om het bestand te verwijderen vóór verzending
-4. **Versturen** — bestanden worden geüpload, daarna wordt het bericht aangemaakt met bijlage-referenties
+2. **Afbeelding plakken** — Ctrl+V / ⌘V plakt een afbeelding uit het clipboard (bijv. screenshot)
+3. **Preview** — geselecteerde bestanden verschijnen als chips onder het tekstveld
+4. **Verwijderen** — klik ✕ op een chip om het bestand te verwijderen vóór verzending
+5. **Versturen** — bestanden worden geüpload, daarna wordt het bericht aangemaakt met bijlage-referenties
 
 ## Upload flow
 
 ```
-[Gebruiker selecteert bestand]
+[Gebruiker selecteert bestand of plakt afbeelding]
         ↓
 [Client-side validatie: grootte + MIME-type]
         ↓
