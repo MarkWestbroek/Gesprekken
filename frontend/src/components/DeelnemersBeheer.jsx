@@ -141,7 +141,10 @@ export default function DeelnemersBeheer({ onBack }) {
   return (
     <div className="screen beheer-screen">
       <header className="list-header">
-        <h2>Deelnemers beheren</h2>
+        <div className="header-brand">
+          <img className="header-brandmark" src="/cg-brandmark.svg" alt="Common Ground" />
+          <h2>Deelnemers beheren</h2>
+        </div>
         <button className="btn-switch" onClick={onBack}>← Terug</button>
       </header>
 
@@ -188,10 +191,10 @@ export default function DeelnemersBeheer({ onBack }) {
                     </select>
                   </td>
                   <td className="col-actions">
-                    <button className="btn-save" onClick={saveEdit} disabled={saving}>
+                    <button className="btn-save" onClick={saveEdit} disabled={saving} aria-label="Wijziging opslaan">
                       ✓
                     </button>
-                    <button className="btn-cancel" onClick={cancelEdit} disabled={saving}>
+                    <button className="btn-cancel" onClick={cancelEdit} disabled={saving} aria-label="Bewerking annuleren">
                       ✕
                     </button>
                   </td>
@@ -203,10 +206,10 @@ export default function DeelnemersBeheer({ onBack }) {
                   <td className="cell-ref">{d.referentie}</td>
                   <td>{d.type?.naam || typeNaam(d.typeId)}</td>
                   <td className="col-actions">
-                    <button className="btn-edit" onClick={() => startEdit(d)} disabled={saving}>
+                    <button className="btn-edit" onClick={() => startEdit(d)} disabled={saving} aria-label={`Bewerk ${d.naam}`}>
                       ✎
                     </button>
-                    <button className="btn-delete" onClick={() => handleDelete(d.id)} disabled={saving}>
+                    <button className="btn-delete" onClick={() => handleDelete(d.id)} disabled={saving} aria-label={`Verwijder ${d.naam}`}>
                       🗑
                     </button>
                   </td>
@@ -245,10 +248,10 @@ export default function DeelnemersBeheer({ onBack }) {
                   </select>
                 </td>
                 <td className="col-actions">
-                  <button className="btn-save" onClick={handleAdd} disabled={saving}>
+                  <button className="btn-save" onClick={handleAdd} disabled={saving} aria-label="Deelnemer toevoegen">
                     ✓
                   </button>
-                  <button className="btn-cancel" onClick={() => setShowNew(false)} disabled={saving}>
+                  <button className="btn-cancel" onClick={() => setShowNew(false)} disabled={saving} aria-label="Annuleer toevoegen">
                     ✕
                   </button>
                 </td>

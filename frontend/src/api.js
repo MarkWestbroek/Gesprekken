@@ -54,7 +54,7 @@ export function listBijdragen(gesprekId) {
  * Het tijdstip (geleverd) wordt automatisch op nu gezet.
  * Optioneel: bijlageIds koppelt eerder geüploade documenten aan het bericht.
  */
-export function createBijdrage(gesprekId, bijdragerId, tekst, bijlageIds = []) {
+export function createBijdrage(gesprekId, bijdragerId, tekst, bijlageIds = [], reactieOpId = null) {
   return fetchJSON(`/gesprekken/${encodeURIComponent(gesprekId)}/bijdragen`, {
     method: 'POST',
     body: JSON.stringify({
@@ -62,6 +62,7 @@ export function createBijdrage(gesprekId, bijdragerId, tekst, bijlageIds = []) {
       geleverd: new Date().toISOString(),
       tekst,
       bijlageIds: bijlageIds.length > 0 ? bijlageIds : undefined,
+      reactieOpId: reactieOpId || undefined,
     }),
   });
 }

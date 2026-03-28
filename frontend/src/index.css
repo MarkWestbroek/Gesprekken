@@ -1,29 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap');
+
 :root {
-  --bg: #efeae2;
+  --bg: #f2f8fb;
   --panel-bg: #ffffff;
-  --mine-bg: #d9fdd3;
+  --mine-bg: #e6f5fc;
   --theirs-bg: #ffffff;
-  --primary: #00a884;
-  --primary-dark: #008f72;
-  --text: #111b21;
-  --text-light: #667781;
-  --border: #e9edef;
+  --primary: #009ee3;
+  --primary-dark: #01689b;
+  --accent: #ffbc2c;
+  --brand-navy: #1d3f72;
+  --text: #262d30;
+  --text-light: #535353;
+  --border: #d6e6ef;
   --shadow: 0 1px 3px rgba(0,0,0,.08);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  line-height: 1.45;
+/*
+ * Focus-indicatoren (WCAG 2.4.13 / NL Design System):
+ * - Minimaal 2px brede outline
+ * - 3:1 contrast t.o.v. aangrenzende kleuren
+ * - Alleen zichtbaar bij toetsenbordnavigatie (:focus-visible)
+ */
+:focus-visible {
+  outline: 3px solid var(--primary-dark);
+  outline-offset: 2px;
 }
 
+body {
+  font-family: "Source Sans 3", "Segoe UI", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  /* NLDS richtlijn typografie: comfortabele regelhoogte (≥ 1.5 voor broodtekst) */
+  line-height: 1.5;
+}
+
+h1, h2, h3, h4, .brand-heading {
+  font-family: "Montserrat", "Segoe UI", Arial, sans-serif;
+  letter-spacing: .02em;
+}
+
+/*
+ * Widget-klaar: hoogte wordt bepaald door het container-element.
+ * Als de chat standalone draait neemt het 100vh in;
+ * wanneer ingebed als widget past het zich aan de container aan.
+ */
 #root {
   max-width: 900px;
   margin: 0 auto;
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
 }

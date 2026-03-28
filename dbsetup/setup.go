@@ -97,6 +97,11 @@ func CreateTables(db *bun.DB) error {
 		return fmt.Errorf("migratie type_id mislukt: %w", err)
 	}
 
+	// Voeg reactie_op_id kolom toe aan gespreksbijdragen als deze nog niet bestaat
+	if err := migrateReactieOpID(db); err != nil {
+		return fmt.Errorf("migratie reactie_op_id mislukt: %w", err)
+	}
+
 	return nil
 }
 
@@ -194,5 +199,27 @@ func migrateDeelnemerTypeID(db *bun.DB) error {
 	}
 	_, err = db.ExecContext(ctx,
 		`ALTER TABLE gespreksdeelnemers ALTER COLUMN type_id SET NOT NULL`)
+	return err
+}
+
+// migrateReactieOpID voegt de reactie_op_id kolom toe aan gespreksbijdragen
+// zodat een bijdrage kan verwijzen naar een eerdere bijdrage (reply).
+// Idempotent: slaat over als de kolom al bestaat.
+func migrateReactieOpID(db *bun.DB) error {
+	ctx := context.Background()
+	var exists bool
+	err := db.QueryRowContext(ctx,
+		`SELECT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_name = 'gespreksbijdragen' AND column_name = 'reactie_op_id'
+		)`).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	_, err = db.ExecContext(ctx,
+		`ALTER TABLE gespreksbijdragen ADD COLUMN reactie_op_id uuid REFERENCES gespreksbijdragen(id)`)
 	return err
 }

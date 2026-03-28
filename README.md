@@ -97,7 +97,11 @@ De React/Vite-frontend ondersteunt een chatervaring met een aantal expliciete UI
 - Scrollpositie blijft behouden tijdens polling als de gebruiker oudere berichten leest.
 - Nieuwe berichten worden aangekondigd met een knop rechts-onder in plaats van direct in beeld te forceren.
 - Leesbevestigingen volgen zichtbaarheid in de viewport in plaats van alleen het ophalen via polling.
-- Berichtstatus onder eigen berichten gebruikt één of twee vinkjes met grijs/groen onderscheid voor gedeeltelijk of volledig gelezen.
+- Berichtstatus onder eigen berichten gebruikt één of twee vinkjes met grijs/donkerblauw onderscheid voor gedeeltelijk of volledig gelezen.
+- Datumseparator gebruikt **Gisteren** voor berichten van de vorige kalenderdag.
+- URL's in berichten worden klikbaar gemaakt en tonen een compacte preview-kaart op berichtniveau.
+- Tijdens typen wordt de eerste URL ook al in een lichte voorvertoning getoond boven de composer.
+- Klassieke ASCII-smileys (zoals `:)` en `;-)`) worden direct omgezet naar emoji tijdens typen en bij weergave.
 
 ### Lagen
 

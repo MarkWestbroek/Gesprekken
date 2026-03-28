@@ -67,17 +67,19 @@ type GesprekDeelname struct {
 type Gespreksbijdrage struct {
 	bun.BaseModel `bun:"table:gespreksbijdragen,alias:gb"`
 
-	ID          uuid.UUID `bun:"id,pk,type:uuid,default:gen_random_uuid()" json:"id"`
-	GesprekID   uuid.UUID `bun:"gesprek_id,notnull,type:uuid"              json:"gesprekId"`
-	BijdragerID uuid.UUID `bun:"bijdrager_id,notnull,type:uuid"           json:"bijdragerId"`
-	Geleverd    time.Time `bun:"geleverd,notnull,type:timestamptz"         json:"geleverd"`
-	Tekst       string    `bun:"tekst,notnull"                             json:"tekst"`
+	ID          uuid.UUID  `bun:"id,pk,type:uuid,default:gen_random_uuid()" json:"id"`
+	GesprekID   uuid.UUID  `bun:"gesprek_id,notnull,type:uuid"              json:"gesprekId"`
+	BijdragerID uuid.UUID  `bun:"bijdrager_id,notnull,type:uuid"           json:"bijdragerId"`
+	Geleverd    time.Time  `bun:"geleverd,notnull,type:timestamptz"         json:"geleverd"`
+	Tekst       string     `bun:"tekst,notnull"                             json:"tekst"`
+	ReactieOpID *uuid.UUID `bun:"reactie_op_id,type:uuid"                   json:"reactieOpId,omitempty"`
 
 	// Navigatie
-	Gesprek   *Gesprek           `bun:"rel:belongs-to,join:gesprek_id=id"  json:"-"`
-	Bijdrager *Gespreksdeelnemer `bun:"rel:belongs-to,join:bijdrager_id=id" json:"bijdrager,omitempty"`
-	Lezingen  []BijdrageLezing   `bun:"rel:has-many,join:id=bijdrage_id"   json:"lezingen,omitempty"`
-	Bijlagen  []Document         `bun:"rel:has-many,join:id=bijdrage_id"   json:"bijlagen,omitempty"`
+	Gesprek   *Gesprek           `bun:"rel:belongs-to,join:gesprek_id=id"    json:"-"`
+	Bijdrager *Gespreksdeelnemer `bun:"rel:belongs-to,join:bijdrager_id=id"  json:"bijdrager,omitempty"`
+	ReactieOp *Gespreksbijdrage  `bun:"rel:belongs-to,join:reactie_op_id=id" json:"reactieOp,omitempty"`
+	Lezingen  []BijdrageLezing   `bun:"rel:has-many,join:id=bijdrage_id"     json:"lezingen,omitempty"`
+	Bijlagen  []Document         `bun:"rel:has-many,join:id=bijdrage_id"     json:"bijlagen,omitempty"`
 }
 
 // Document bevat metadata voor een geüpload bestand in object storage.

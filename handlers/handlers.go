@@ -362,6 +362,8 @@ func (h *Handler) ListBijdragen(c *gin.Context) {
 		Where("gb.gesprek_id = ?", gesprekID).
 		Relation("Bijdrager").
 		Relation("Bijlagen").
+		Relation("ReactieOp").
+		Relation("ReactieOp.Bijdrager").
 		Relation("Lezingen").
 		Relation("Lezingen.Lezer").
 		OrderExpr("gb.geleverd ASC").
@@ -384,6 +386,8 @@ func (h *Handler) GetBijdrage(c *gin.Context) {
 		Where("gb.id = ?", bijdrageID).
 		Relation("Bijdrager").
 		Relation("Bijlagen").
+		Relation("ReactieOp").
+		Relation("ReactieOp.Bijdrager").
 		Relation("Lezingen").
 		Relation("Lezingen.Lezer").
 		Scan(c.Request.Context())
@@ -399,6 +403,7 @@ type CreateBijdrageInput struct {
 	Geleverd    time.Time   `json:"geleverd"    binding:"required"`
 	Tekst       string      `json:"tekst"       binding:"required"`
 	BijlageIDs  []uuid.UUID `json:"bijlageIds"`
+	ReactieOpID *uuid.UUID  `json:"reactieOpId"`
 }
 
 func (h *Handler) CreateBijdrage(c *gin.Context) {
@@ -417,6 +422,7 @@ func (h *Handler) CreateBijdrage(c *gin.Context) {
 		BijdragerID: input.BijdragerID,
 		Geleverd:    input.Geleverd,
 		Tekst:       input.Tekst,
+		ReactieOpID: input.ReactieOpID,
 	}
 	_, err = h.DB.NewInsert().Model(&bijdrage).Exec(c.Request.Context())
 	if err != nil {

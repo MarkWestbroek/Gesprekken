@@ -22,6 +22,7 @@ export default function UserPicker({ onSelect, onBeheer }) {
 
   return (
     <div className="screen user-picker">
+      <img className="brandmark" src="/cg-brandmark.svg" alt="Common Ground" />
       <h2>Kies een deelnemer</h2>
       {error && <p className="error">{error}</p>}
       <ul className="user-list">

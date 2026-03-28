@@ -32,7 +32,10 @@ export default function GesprekkenList({ user, onSelect, onSwitchUser, onBeheer 
   return (
     <div className="screen gesprekken-list">
       <header className="list-header">
-        <h2>Gesprekken</h2>
+        <div className="header-brand">
+          <img className="header-brandmark" src="/cg-brandmark.svg" alt="Common Ground" />
+          <h2>Gesprekken</h2>
+        </div>
         <div className="header-right">
           <span className="current-user">{user.naam}</span>
           <button className="btn-switch" onClick={onSwitchUser}>

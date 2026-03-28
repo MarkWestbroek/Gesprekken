@@ -3,11 +3,57 @@ import {
   listBijdragen, createBijdrage, createLezing, listDeelnemers, createDeelname,
   uploadDocument, documentDownloadUrl, MAX_FILE_SIZE, ALLOWED_MIME_TYPES,
 } from '../api';
-import { formatMessage } from '../formatMessage';
+import { formatMessage, normalizeAsciiSmileys } from '../formatMessage';
+import EmojiPicker from './EmojiPicker';
+
+function PaperclipIcon() {
+  return (
+    <svg className="composer-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path
+        d="M8.5 12.5L15.9 5.1a3.25 3.25 0 1 1 4.6 4.6l-9.2 9.2a5.25 5.25 0 1 1-7.4-7.4l9.6-9.6"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.9"
+      />
+    </svg>
+  );
+}
+
+const URL_REGEX = /https?:\/\/[^\s]+/g;
+
+function extractUrls(text) {
+  return (text.match(URL_REGEX) || []).map((raw) => raw.replace(/[.,!?;:)\]]*$/, ''));
+}
+
+function formatDateLabel(iso) {
+  const d = new Date(iso);
+  const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffInDays = Math.round((today - date) / 86400000);
+
+  if (diffInDays === 1) return 'Gisteren';
+
+  return d.toLocaleDateString('nl-NL', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+}
+
+function toHostname(url) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return '';
+  }
+}
 
 /**
  * Chatscherm: toont de bijdragen (berichten) van een gesprek in
- * messenger-stijl. Eigen berichten staan rechts (groen), berichten
+ * messenger-stijl. Eigen berichten staan rechts (lichtblauw), berichten
  * van anderen links (wit).
  *
  * Berichten worden elke 3 seconden opnieuw opgehaald (polling).
@@ -52,12 +98,18 @@ export default function ChatView({ user, gesprek, onBack }) {
   const [pendingFiles, setPendingFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(null); // 'uploading' | null
 
+  // Reageren op een bijdrage
+  const [replyTo, setReplyTo] = useState(null);
+
   // Collega-erbij modal (alleen voor interne_actor)
   const [showCollegaModal, setShowCollegaModal] = useState(false);
   const [beschikbareCollega, setBeschikbareCollega] = useState([]);
   const [collegaLoading, setCollegaLoading] = useState(false);
 
   const isInterneActor = user.type?.code === 'interne_actor';
+  const draftUrls = extractUrls(tekst);
+  const draftPreviewUrl = draftUrls.length > 0 ? draftUrls[0] : null;
+  const draftHtml = tekst.trim() ? formatMessage(tekst) : '';
 
   const scrollMessagesToBottom = (behavior = 'auto') => {
     const container = messagesRef.current;
@@ -204,9 +256,10 @@ export default function ChatView({ user, gesprek, onBack }) {
       }
       // Maak bijdrage aan met eventuele bijlage-IDs
       const berichtTekst = trimmed || (uploadedIds.length > 0 ? '📎 Bijlage' : '');
-      await createBijdrage(gesprek.id, user.id, berichtTekst, uploadedIds);
+      await createBijdrage(gesprek.id, user.id, berichtTekst, uploadedIds, replyTo?.id);
       setTekst('');
       setPendingFiles([]);
+      setReplyTo(null);
       setUploadProgress(null);
       await loadBijdragen(true);
       inputRef.current?.focus();
@@ -271,12 +324,44 @@ export default function ChatView({ user, gesprek, onBack }) {
     }
   };
 
+  /** Scroll naar de oorspronkelijke bijdrage en markeer deze kort */
+  const scrollToBijdrage = (id) => {
+    const el = messagesRef.current?.querySelector(`[data-bijdrage-id="${id}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('highlight');
+      setTimeout(() => el.classList.remove('highlight'), 1500);
+    }
+  };
+
   /** Enter verstuurt, Shift+Enter maakt een nieuwe regel */
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
+  };
+
+  /** Voeg een emoji in op de cursorpositie van het tekstveld */
+  const insertEmoji = (emoji) => {
+    const ta = inputRef.current;
+    if (!ta) { setTekst((prev) => prev + emoji); return; }
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const before = tekst.slice(0, start);
+    const after = tekst.slice(end);
+    setTekst(before + emoji + after);
+    requestAnimationFrame(() => {
+      ta.focus();
+      const pos = start + emoji.length;
+      ta.setSelectionRange(pos, pos);
+    });
+  };
+
+  const handleTekstChange = (value) => {
+    // Voer dezelfde smiley-normalisatie alvast in tijdens typen,
+    // zodat gebruikers direct zien wat ze gaan versturen.
+    setTekst(normalizeAsciiSmileys(value));
   };
 
   /** Formatteer tijdstip als HH:MM */
@@ -286,14 +371,6 @@ export default function ChatView({ user, gesprek, onBack }) {
       minute: '2-digit',
     });
 
-  /** Formatteer datum als "maandag 23 maart" */
-  const formatDate = (iso) =>
-    new Date(iso).toLocaleDateString('nl-NL', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-    });
-
   const otherParticipantIds = new Set(
     (gesprek.deelnames || [])
       .map((d) => d.deelnemerId)
@@ -301,7 +378,7 @@ export default function ChatView({ user, gesprek, onBack }) {
   );
 
   // Bijhouden van de laatst getoonde datum voor datumseparatoren
-  let lastDate = '';
+  let lastDateKey = '';
 
   /**
    * Open het collega-modal: haal alle deelnemers op en filter
@@ -346,18 +423,21 @@ export default function ChatView({ user, gesprek, onBack }) {
   return (
     <div className="screen chat-view">
       <header className="chat-header">
-        <button className="btn-back" onClick={onBack}>
+        <button className="btn-back" onClick={onBack} aria-label="Terug naar gesprekkenlijst">
           ←
         </button>
         <div className="chat-title">
           <h2>{gesprek.onderwerp}</h2>
           <span className="chat-subtitle">{user.naam}</span>
         </div>
-        {isInterneActor && (
-          <button className="btn-collega" onClick={openCollegaModal}>
-            + Collega
-          </button>
-        )}
+        <div className="chat-header-right">
+          {isInterneActor && (
+            <button className="btn-collega" onClick={openCollegaModal}>
+              + Collega
+            </button>
+          )}
+          <img className="chat-brandmark" src="/cg-brandmark.svg" alt="Common Ground" />
+        </div>
       </header>
 
       {/* Modal: collega toevoegen aan gesprek */}
@@ -389,10 +469,14 @@ export default function ChatView({ user, gesprek, onBack }) {
       <div className="messages" ref={messagesRef} onScroll={handleMessagesScroll}>
         {bijdragen.map((b) => {
           const isMine = b.bijdragerId === user.id;
-          const dateStr = formatDate(b.geleverd);
+          const day = new Date(b.geleverd);
+          const dateKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`;
+          const dateStr = formatDateLabel(b.geleverd);
+          const urls = extractUrls(b.tekst);
+          const previewUrl = urls.length > 0 ? urls[0] : null;
           let dateSeparator = null;
-          if (dateStr !== lastDate) {
-            lastDate = dateStr;
+          if (dateKey !== lastDateKey) {
+            lastDateKey = dateKey;
             dateSeparator = <div className="date-separator">{dateStr}</div>;
           }
 
@@ -404,6 +488,26 @@ export default function ChatView({ user, gesprek, onBack }) {
                   <span className="message-sender">
                     {b.bijdrager?.naam || 'Onbekend'}
                   </span>
+                )}
+                {b.reactieOp && (
+                  <div className="reply-quote" onClick={() => scrollToBijdrage(b.reactieOpId)}>
+                    <span className="reply-quote-sender">{b.reactieOp.bijdrager?.naam || 'Onbekend'}</span>
+                    <span className="reply-quote-text">
+                      {b.reactieOp.tekst.length > 120 ? b.reactieOp.tekst.slice(0, 120) + '…' : b.reactieOp.tekst}
+                    </span>
+                  </div>
+                )}
+                {previewUrl && (
+                  <a
+                    className="message-link-preview"
+                    href={previewUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <span className="message-link-preview-title">Link gedeeld</span>
+                    <span className="message-link-preview-host">{toHostname(previewUrl)}</span>
+                    <span className="message-link-preview-url">{previewUrl}</span>
+                  </a>
                 )}
                 {/* Bijlagen tonen */}
                 {b.bijlagen && b.bijlagen.length > 0 && (
@@ -440,6 +544,7 @@ export default function ChatView({ user, gesprek, onBack }) {
                   dangerouslySetInnerHTML={{ __html: formatMessage(b.tekst) }}
                 />
                 <div className="message-footer">
+                  <button className="btn-reply" onClick={() => setReplyTo(b)} title="Reageer" aria-label="Reageer op dit bericht">↩</button>
                   <span className="message-time">{formatTime(b.geleverd)}</span>
                   {/* Toon status alleen onder eigen berichten: ✓ verzonden, ✓✓ gelezen */}
                   {isMine && (() => {
@@ -493,6 +598,19 @@ export default function ChatView({ user, gesprek, onBack }) {
 
       {error && <p className="error chat-error">{error}</p>}
 
+      {/* Reply-preview */}
+      {replyTo && (
+        <div className="reply-preview">
+          <div className="reply-preview-content">
+            <span className="reply-preview-sender">{replyTo.bijdrager?.naam || 'Onbekend'}</span>
+            <span className="reply-preview-text">
+              {replyTo.tekst.length > 80 ? replyTo.tekst.slice(0, 80) + '…' : replyTo.tekst}
+            </span>
+          </div>
+          <button className="reply-preview-close" onClick={() => setReplyTo(null)} aria-label="Annuleer reactie">✕</button>
+        </div>
+      )}
+
       {/* Geselecteerde bestanden wachtrij */}
       {pendingFiles.length > 0 && (
         <div className="pending-files">
@@ -502,12 +620,31 @@ export default function ChatView({ user, gesprek, onBack }) {
                 {file.type.startsWith('image/') ? '🖼️' : '📄'} {file.name}
               </span>
               <button className="pending-file-remove" onClick={() => removePendingFile(i)}
-                      disabled={sending} title="Verwijderen">✕</button>
+                      disabled={sending} title="Verwijderen" aria-label={`Verwijder ${file.name}`}>✕</button>
             </div>
           ))}
           {uploadProgress === 'uploading' && (
             <div className="upload-status">Bezig met uploaden…</div>
           )}
+        </div>
+      )}
+
+      {draftPreviewUrl && (
+        <div className="draft-link-preview" aria-live="polite">
+          <span className="draft-link-preview-title">Voorvertoning link</span>
+          <a href={draftPreviewUrl} target="_blank" rel="noopener noreferrer" className="draft-link-preview-url">
+            {toHostname(draftPreviewUrl) || draftPreviewUrl}
+          </a>
+        </div>
+      )}
+
+      {draftHtml && (
+        <div className="draft-message-preview" aria-live="polite">
+          <span className="draft-message-preview-title">Conceptweergave</span>
+          <div
+            className="draft-message-preview-body message-text"
+            dangerouslySetInnerHTML={{ __html: draftHtml }}
+          />
         </div>
       )}
 
@@ -525,13 +662,15 @@ export default function ChatView({ user, gesprek, onBack }) {
           onClick={() => fileInputRef.current?.click()}
           disabled={sending}
           title="Bestand bijvoegen"
+          aria-label="Bestand bijvoegen"
         >
-          📎
+          <PaperclipIcon />
         </button>
+        <EmojiPicker onSelect={insertEmoji} />
         <textarea
           ref={inputRef}
           value={tekst}
-          onChange={(e) => setTekst(e.target.value)}
+          onChange={(e) => handleTekstChange(e.target.value)}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           placeholder="Schrijf een bericht… (Shift+Enter voor nieuwe regel)"
