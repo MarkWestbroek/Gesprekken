@@ -67,12 +67,14 @@ type GesprekDeelname struct {
 type Gespreksbijdrage struct {
 	bun.BaseModel `bun:"table:gespreksbijdragen,alias:gb"`
 
-	ID          uuid.UUID  `bun:"id,pk,type:uuid,default:gen_random_uuid()" json:"id"`
-	GesprekID   uuid.UUID  `bun:"gesprek_id,notnull,type:uuid"              json:"gesprekId"`
-	BijdragerID uuid.UUID  `bun:"bijdrager_id,notnull,type:uuid"           json:"bijdragerId"`
-	Geleverd    time.Time  `bun:"geleverd,notnull,type:timestamptz"         json:"geleverd"`
-	Tekst       string     `bun:"tekst,notnull"                             json:"tekst"`
-	ReactieOpID *uuid.UUID `bun:"reactie_op_id,type:uuid"                   json:"reactieOpId,omitempty"`
+	ID              uuid.UUID  `bun:"id,pk,type:uuid,default:gen_random_uuid()" json:"id"`
+	GesprekID       uuid.UUID  `bun:"gesprek_id,notnull,type:uuid"              json:"gesprekId"`
+	BijdragerID     uuid.UUID  `bun:"bijdrager_id,notnull,type:uuid"           json:"bijdragerId"`
+	Geleverd        time.Time  `bun:"geleverd,notnull,type:timestamptz"         json:"geleverd"`
+	Tekst           string     `bun:"tekst,notnull"                             json:"tekst"`
+	ReactieOpID     *uuid.UUID `bun:"reactie_op_id,type:uuid"                   json:"reactieOpId,omitempty"`
+	LaatstBewerktOp *time.Time `bun:"laatst_bewerkt_op,type:timestamptz"        json:"laatstBewerktOp,omitempty"`
+	Teruggetrokken  bool       `bun:"teruggetrokken,notnull,default:false"      json:"teruggetrokken"`
 
 	// Navigatie
 	Gesprek   *Gesprek           `bun:"rel:belongs-to,join:gesprek_id=id"    json:"-"`
@@ -97,6 +99,21 @@ type Document struct {
 	BucketKey    string     `bun:"bucket_key,notnull"                         json:"-"`
 	OpgeslagenOp time.Time  `bun:"opgeslagen_op,notnull,type:timestamptz"     json:"opgeslagenOp"`
 	BijdrageID   *uuid.UUID `bun:"bijdrage_id,type:uuid"                     json:"bijdrageId,omitempty"`
+
+	// Navigatie
+	Bijdrage *Gespreksbijdrage `bun:"rel:belongs-to,join:bijdrage_id=id" json:"-"`
+}
+
+// GespreksbijdrageVersie bewaart eerdere versies van een bewerkte bijdrage.
+// Bij elke bewerking wordt de oude tekst hier opgeslagen als audit trail.
+type GespreksbijdrageVersie struct {
+	bun.BaseModel `bun:"table:gespreksbijdrage_versies,alias:gbv"`
+
+	ID          uuid.UUID `bun:"id,pk,type:uuid,default:gen_random_uuid()" json:"id"`
+	BijdrageID  uuid.UUID `bun:"bijdrage_id,notnull,type:uuid"             json:"bijdrageId"`
+	Versie      int       `bun:"versie,notnull"                            json:"versie"`
+	Tekst       string    `bun:"tekst,notnull"                             json:"tekst"`
+	GewijzigdOp time.Time `bun:"gewijzigd_op,notnull,type:timestamptz"     json:"gewijzigdOp"`
 
 	// Navigatie
 	Bijdrage *Gespreksbijdrage `bun:"rel:belongs-to,join:bijdrage_id=id" json:"-"`

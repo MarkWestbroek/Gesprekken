@@ -442,6 +442,204 @@ func (h *Handler) CreateBijdrage(c *gin.Context) {
 	c.JSON(http.StatusCreated, bijdrage)
 }
 
+// ──────────────────── Bewerken van bijdragen ────────────────────
+
+type UpdateBijdrageInput struct {
+	BijdragerID uuid.UUID `json:"bijdragerId" binding:"required"`
+	Tekst       string    `json:"tekst"       binding:"required"`
+}
+
+// UpdateBijdrage wijzigt de tekst van een bestaande bijdrage (PUT).
+// Alleen de oorspronkelijke bijdrager mag zijn eigen bericht bewerken.
+// De vorige tekst wordt bewaard in gespreksbijdrage_versies als audit trail.
+func (h *Handler) UpdateBijdrage(c *gin.Context) {
+	bijdrageID, err := uuid.Parse(c.Param("bijdrageId"))
+	if err != nil {
+		problemJSON(c, http.StatusBadRequest, "Ongeldig ID", "Het opgegeven bijdrage-ID is geen geldig UUID.")
+		return
+	}
+
+	var input UpdateBijdrageInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		problemJSON(c, http.StatusBadRequest, "Ongeldige invoer", err.Error())
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// Haal de huidige bijdrage op
+	bijdrage := new(model.Gespreksbijdrage)
+	err = h.DB.NewSelect().Model(bijdrage).
+		Where("gb.id = ?", bijdrageID).
+		Scan(ctx)
+	if err != nil {
+		problemJSON(c, http.StatusNotFound, "Niet gevonden", "Bijdrage niet gevonden.")
+		return
+	}
+
+	// Autorisatiecheck: alleen de bijdrager mag bewerken
+	if bijdrage.BijdragerID != input.BijdragerID {
+		problemJSON(c, http.StatusForbidden, "Niet toegestaan", "Alleen de oorspronkelijke bijdrager mag dit bericht bewerken.")
+		return
+	}
+
+	// Teruggetrokken berichten mogen niet bewerkt worden
+	if bijdrage.Teruggetrokken {
+		problemJSON(c, http.StatusConflict, "Niet toegestaan", "Een teruggetrokken bericht kan niet meer bewerkt worden.")
+		return
+	}
+
+	// Geen wijziging nodig als tekst identiek is
+	if bijdrage.Tekst == input.Tekst {
+		problemJSON(c, http.StatusBadRequest, "Geen wijziging", "De nieuwe tekst is identiek aan de huidige tekst.")
+		return
+	}
+
+	now := time.Now()
+
+	// Bepaal het volgende versienummer
+	var maxVersie int
+	err = h.DB.NewSelect().
+		Model((*model.GespreksbijdrageVersie)(nil)).
+		ColumnExpr("COALESCE(MAX(gbv.versie), 0)").
+		Where("gbv.bijdrage_id = ?", bijdrageID).
+		Scan(ctx, &maxVersie)
+	if err != nil {
+		problemJSON(c, http.StatusInternalServerError, "Interne fout", err.Error())
+		return
+	}
+
+	// Bewaar de huidige tekst als vorige versie
+	versie := model.GespreksbijdrageVersie{
+		BijdrageID: bijdrageID,
+		Versie:     maxVersie + 1,
+		Tekst:      bijdrage.Tekst,
+		GewijzigdOp: func() time.Time {
+			if bijdrage.LaatstBewerktOp != nil {
+				return *bijdrage.LaatstBewerktOp
+			}
+			return bijdrage.Geleverd
+		}(),
+	}
+	_, err = h.DB.NewInsert().Model(&versie).Exec(ctx)
+	if err != nil {
+		problemJSON(c, http.StatusInternalServerError, "Versie opslaan mislukt", err.Error())
+		return
+	}
+
+	// Werk de bijdrage bij met de nieuwe tekst
+	_, err = h.DB.NewUpdate().Model((*model.Gespreksbijdrage)(nil)).
+		Set("tekst = ?", input.Tekst).
+		Set("laatst_bewerkt_op = ?", now).
+		Where("id = ?", bijdrageID).
+		Exec(ctx)
+	if err != nil {
+		problemJSON(c, http.StatusInternalServerError, "Bijwerken mislukt", err.Error())
+		return
+	}
+
+	// Haal bijgewerkte bijdrage op met relaties
+	updated := new(model.Gespreksbijdrage)
+	_ = h.DB.NewSelect().Model(updated).
+		Where("gb.id = ?", bijdrageID).
+		Relation("Bijdrager").
+		Relation("Bijlagen").
+		Relation("ReactieOp").
+		Relation("ReactieOp.Bijdrager").
+		Relation("Lezingen").
+		Relation("Lezingen.Lezer").
+		Scan(ctx)
+
+	c.JSON(http.StatusOK, updated)
+}
+
+// ListBijdrageVersies toont de bewerkgeschiedenis van een bijdrage
+// (GET /gesprekken/:id/bijdragen/:bijdrageId/versies).
+// Versies zijn oplopend gesorteerd (oudste eerst).
+func (h *Handler) ListBijdrageVersies(c *gin.Context) {
+	bijdrageID, err := uuid.Parse(c.Param("bijdrageId"))
+	if err != nil {
+		problemJSON(c, http.StatusBadRequest, "Ongeldig ID", "Het opgegeven bijdrage-ID is geen geldig UUID.")
+		return
+	}
+	versies := make([]model.GespreksbijdrageVersie, 0)
+	err = h.DB.NewSelect().Model(&versies).
+		Where("gbv.bijdrage_id = ?", bijdrageID).
+		OrderExpr("gbv.versie ASC").
+		Scan(c.Request.Context())
+	if err != nil {
+		problemJSON(c, http.StatusInternalServerError, "Interne fout", err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, versies)
+}
+
+// ──────────────────── Terugtrekken van bijdragen ────────────────────
+
+type PatchBijdrageInput struct {
+	BijdragerID    uuid.UUID `json:"bijdragerId"    binding:"required"`
+	Teruggetrokken bool      `json:"teruggetrokken"`
+}
+
+// PatchBijdrage markeert een bijdrage als teruggetrokken (PATCH).
+// Alleen de oorspronkelijke bijdrager mag zijn eigen bericht terugtrekken.
+// Het bericht wordt niet verwijderd: de tekst en bijlagen blijven bewaard
+// en zijn opvraagbaar via de versiehistorie.
+func (h *Handler) PatchBijdrage(c *gin.Context) {
+	bijdrageID, err := uuid.Parse(c.Param("bijdrageId"))
+	if err != nil {
+		problemJSON(c, http.StatusBadRequest, "Ongeldig ID", "Het opgegeven bijdrage-ID is geen geldig UUID.")
+		return
+	}
+
+	var input PatchBijdrageInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		problemJSON(c, http.StatusBadRequest, "Ongeldige invoer", err.Error())
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// Haal de huidige bijdrage op
+	bijdrage := new(model.Gespreksbijdrage)
+	err = h.DB.NewSelect().Model(bijdrage).
+		Where("gb.id = ?", bijdrageID).
+		Scan(ctx)
+	if err != nil {
+		problemJSON(c, http.StatusNotFound, "Niet gevonden", "Bijdrage niet gevonden.")
+		return
+	}
+
+	// Autorisatiecheck: alleen de bijdrager mag terugtrekken
+	if bijdrage.BijdragerID != input.BijdragerID {
+		problemJSON(c, http.StatusForbidden, "Niet toegestaan", "Alleen de oorspronkelijke bijdrager mag dit bericht terugtrekken.")
+		return
+	}
+
+	_, err = h.DB.NewUpdate().Model((*model.Gespreksbijdrage)(nil)).
+		Set("teruggetrokken = ?", input.Teruggetrokken).
+		Where("id = ?", bijdrageID).
+		Exec(ctx)
+	if err != nil {
+		problemJSON(c, http.StatusInternalServerError, "Bijwerken mislukt", err.Error())
+		return
+	}
+
+	// Haal bijgewerkte bijdrage op met relaties
+	updated := new(model.Gespreksbijdrage)
+	_ = h.DB.NewSelect().Model(updated).
+		Where("gb.id = ?", bijdrageID).
+		Relation("Bijdrager").
+		Relation("Bijlagen").
+		Relation("ReactieOp").
+		Relation("ReactieOp.Bijdrager").
+		Relation("Lezingen").
+		Relation("Lezingen.Lezer").
+		Scan(ctx)
+
+	c.JSON(http.StatusOK, updated)
+}
+
 // ──────────────────── Lezingen (genest onder bijdragen) ────────────────────
 
 func (h *Handler) ListLezingen(c *gin.Context) {

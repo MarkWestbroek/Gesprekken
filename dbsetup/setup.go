@@ -66,6 +66,7 @@ func CreateTables(db *bun.DB) error {
 		(*model.Gespreksbijdrage)(nil),
 		(*model.BijdrageLezing)(nil),
 		(*model.Document)(nil),
+		(*model.GespreksbijdrageVersie)(nil),
 	}
 
 	for _, m := range models {
@@ -101,6 +102,20 @@ func CreateTables(db *bun.DB) error {
 	if err := migrateReactieOpID(db); err != nil {
 		return fmt.Errorf("migratie reactie_op_id mislukt: %w", err)
 	}
+
+	// Voeg laatst_bewerkt_op kolom toe aan gespreksbijdragen voor bewerkhistorie
+	if err := migrateLaatstBewerktOp(db); err != nil {
+		return fmt.Errorf("migratie laatst_bewerkt_op mislukt: %w", err)
+	}
+
+	// Voeg teruggetrokken kolom toe aan gespreksbijdragen
+	if err := migrateTeruggetrokken(db); err != nil {
+		return fmt.Errorf("migratie teruggetrokken mislukt: %w", err)
+	}
+
+	// Index voor snel ophalen van versiehistorie per bijdrage
+	_, _ = db.ExecContext(ctx,
+		`CREATE INDEX IF NOT EXISTS idx_bijdrage_versies_bijdrage ON gespreksbijdrage_versies (bijdrage_id, versie)`)
 
 	return nil
 }
@@ -199,6 +214,48 @@ func migrateDeelnemerTypeID(db *bun.DB) error {
 	}
 	_, err = db.ExecContext(ctx,
 		`ALTER TABLE gespreksdeelnemers ALTER COLUMN type_id SET NOT NULL`)
+	return err
+}
+
+// migrateLaatstBewerktOp voegt de laatst_bewerkt_op kolom toe aan gespreksbijdragen
+// zodat direct zichtbaar is of een bericht bewerkt is. Idempotent.
+func migrateLaatstBewerktOp(db *bun.DB) error {
+	ctx := context.Background()
+	var exists bool
+	err := db.QueryRowContext(ctx,
+		`SELECT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_name = 'gespreksbijdragen' AND column_name = 'laatst_bewerkt_op'
+		)`).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	_, err = db.ExecContext(ctx,
+		`ALTER TABLE gespreksbijdragen ADD COLUMN laatst_bewerkt_op timestamptz`)
+	return err
+}
+
+// migrateTeruggetrokken voegt de teruggetrokken kolom toe aan gespreksbijdragen
+// zodat een bericht als teruggetrokken gemarkeerd kan worden. Idempotent.
+func migrateTeruggetrokken(db *bun.DB) error {
+	ctx := context.Background()
+	var exists bool
+	err := db.QueryRowContext(ctx,
+		`SELECT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_name = 'gespreksbijdragen' AND column_name = 'teruggetrokken'
+		)`).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	_, err = db.ExecContext(ctx,
+		`ALTER TABLE gespreksbijdragen ADD COLUMN teruggetrokken boolean NOT NULL DEFAULT false`)
 	return err
 }
 

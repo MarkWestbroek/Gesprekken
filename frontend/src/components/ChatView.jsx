@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  listBijdragen, createBijdrage, createLezing, listDeelnemers, createDeelname,
+  listBijdragen, createBijdrage, updateBijdrage, listBijdrageVersies,
+  trekBijdrageTerug, createLezing, listDeelnemers, createDeelname,
   uploadDocument, documentDownloadUrl, MAX_FILE_SIZE, ALLOWED_MIME_TYPES,
 } from '../api';
 import { formatMessage, normalizeAsciiSmileys } from '../formatMessage';
@@ -100,6 +101,15 @@ export default function ChatView({ user, gesprek, onBack }) {
 
   // Reageren op een bijdrage
   const [replyTo, setReplyTo] = useState(null);
+
+  // Bewerken van een bijdrage
+  const [editingId, setEditingId] = useState(null);
+  const [editTekst, setEditTekst] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+
+  // Versiehistorie modal
+  const [versieHistorie, setVersieHistorie] = useState(null); // { bijdrage, versies }
+  const [versieLoading, setVersieLoading] = useState(false);
 
   // Collega-erbij modal (alleen voor interne_actor)
   const [showCollegaModal, setShowCollegaModal] = useState(false);
@@ -420,6 +430,73 @@ export default function ChatView({ user, gesprek, onBack }) {
     }
   };
 
+  /** Start bewerken van een eigen bijdrage */
+  const startEditing = (bijdrage) => {
+    setEditingId(bijdrage.id);
+    setEditTekst(bijdrage.tekst);
+  };
+
+  /** Annuleer bewerken */
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditTekst('');
+  };
+
+  /** Sla de bewerkte tekst op */
+  const saveEdit = async () => {
+    if (!editTekst.trim() || editSaving) return;
+    setEditSaving(true);
+    setError(null);
+    try {
+      await updateBijdrage(gesprek.id, editingId, user.id, editTekst.trim());
+      setEditingId(null);
+      setEditTekst('');
+      await loadBijdragen();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  /** Enter opslaan, Shift+Enter nieuwe regel bij bewerken */
+  const handleEditKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      saveEdit();
+    }
+    if (e.key === 'Escape') {
+      cancelEditing();
+    }
+  };
+
+  /** Toon versiehistorie van een bijdrage */
+  const openVersieHistorie = async (bijdrage) => {
+    setVersieLoading(true);
+    setVersieHistorie({ bijdrage, versies: [] });
+    try {
+      const versies = await listBijdrageVersies(gesprek.id, bijdrage.id);
+      setVersieHistorie({ bijdrage, versies: versies || [] });
+    } catch (e) {
+      setError(e.message);
+      setVersieHistorie(null);
+    } finally {
+      setVersieLoading(false);
+    }
+  };
+
+  /** Trek een eigen bijdrage terug (soft-delete) */
+  const handleTerugtrekken = async (bijdrage) => {
+    if (!window.confirm('Weet je zeker dat je dit bericht wilt terugtrekken? Andere deelnemers zien dat het is verwijderd, maar de inhoud blijft via de historie opvraagbaar.')) return;
+    setError(null);
+    try {
+      await trekBijdrageTerug(gesprek.id, bijdrage.id, user.id);
+      await loadBijdragen();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
   return (
     <div className="screen chat-view">
       <header className="chat-header">
@@ -466,6 +543,61 @@ export default function ChatView({ user, gesprek, onBack }) {
         </div>
       )}
 
+      {/* Modal: versiehistorie van een bijdrage */}
+      {versieHistorie && (
+        <div className="modal-overlay" onClick={() => setVersieHistorie(null)}>
+          <div className="modal versie-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Bewerkgeschiedenis</h3>
+            {versieLoading && <p className="empty">Laden…</p>}
+            {!versieLoading && versieHistorie.versies.length === 0 && (
+              <p className="empty">Geen eerdere versies gevonden.</p>
+            )}
+            <div className="versie-list">
+              {versieHistorie.versies.map((v) => (
+                <div key={v.id} className="versie-item">
+                  <div className="versie-header">
+                    <span className="versie-nummer">Versie {v.versie}</span>
+                    <span className="versie-datum">
+                      {new Date(v.gewijzigdOp).toLocaleString('nl-NL', {
+                        day: 'numeric', month: 'short', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
+                  <div
+                    className="versie-tekst message-text"
+                    dangerouslySetInnerHTML={{ __html: formatMessage(v.tekst) }}
+                  />
+                </div>
+              ))}
+              {/* Huidige versie */}
+              {!versieLoading && (
+                <div className={`versie-item ${versieHistorie.bijdrage.teruggetrokken ? 'versie-retracted' : 'versie-current'}`}>
+                  <div className="versie-header">
+                    <span className="versie-nummer">
+                      {versieHistorie.bijdrage.teruggetrokken ? 'Laatst (teruggetrokken)' : 'Huidig'}
+                    </span>
+                    <span className="versie-datum">
+                      {new Date(versieHistorie.bijdrage.laatstBewerktOp || versieHistorie.bijdrage.geleverd).toLocaleString('nl-NL', {
+                        day: 'numeric', month: 'short', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
+                  <div
+                    className="versie-tekst message-text"
+                    dangerouslySetInnerHTML={{ __html: formatMessage(versieHistorie.bijdrage.tekst) }}
+                  />
+                </div>
+              )}
+            </div>
+            <button className="btn-close-modal" onClick={() => setVersieHistorie(null)}>
+              Sluiten
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="messages" ref={messagesRef} onScroll={handleMessagesScroll}>
         {bijdragen.map((b) => {
           const isMine = b.bijdragerId === user.id;
@@ -483,12 +615,30 @@ export default function ChatView({ user, gesprek, onBack }) {
           return (
             <div key={b.id} data-bijdrage-id={String(b.id)}>
               {dateSeparator}
-              <div className={`message ${isMine ? 'mine' : 'theirs'}`}>
+              <div className={`message ${isMine ? 'mine' : 'theirs'}${b.teruggetrokken ? ' retracted' : ''}`}>
                 {!isMine && (
                   <span className="message-sender">
                     {b.bijdrager?.naam || 'Onbekend'}
                   </span>
                 )}
+                {b.teruggetrokken ? (
+                  <>
+                    <div className="message-text retracted-text">
+                      <span className="retracted-icon">🚫</span> Bericht is verwijderd
+                    </div>
+                    <div className="message-footer">
+                      <button
+                        className="btn-retracted-history"
+                        onClick={() => openVersieHistorie(b)}
+                        title="Bekijk oorspronkelijk bericht"
+                      >
+                        Bekijk origineel
+                      </button>
+                      <span className="message-time">{formatTime(b.geleverd)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
                 {b.reactieOp && (
                   <div className="reply-quote" onClick={() => scrollToBijdrage(b.reactieOpId)}>
                     <span className="reply-quote-sender">{b.reactieOp.bijdrager?.naam || 'Onbekend'}</span>
@@ -539,13 +689,52 @@ export default function ChatView({ user, gesprek, onBack }) {
                     })}
                   </div>
                 )}
-                <div
-                  className="message-text"
-                  dangerouslySetInnerHTML={{ __html: formatMessage(b.tekst) }}
-                />
+                {editingId === b.id ? (
+                  <div className="message-edit">
+                    <textarea
+                      className="edit-textarea"
+                      value={editTekst}
+                      onChange={(e) => setEditTekst(normalizeAsciiSmileys(e.target.value))}
+                      onKeyDown={handleEditKeyDown}
+                      rows={3}
+                      disabled={editSaving}
+                      autoFocus
+                    />
+                    <div className="edit-actions">
+                      <button className="btn-edit-save" onClick={saveEdit} disabled={editSaving || !editTekst.trim()}>
+                        Opslaan
+                      </button>
+                      <button className="btn-edit-cancel" onClick={cancelEditing} disabled={editSaving}>
+                        Annuleer
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className="message-text"
+                    dangerouslySetInnerHTML={{ __html: formatMessage(b.tekst) }}
+                  />
+                )}
                 <div className="message-footer">
                   <button className="btn-reply" onClick={() => setReplyTo(b)} title="Reageer" aria-label="Reageer op dit bericht">↩</button>
-                  <span className="message-time">{formatTime(b.geleverd)}</span>
+                  {isMine && (
+                    <button className="btn-edit" onClick={() => startEditing(b)} title="Bewerk" aria-label="Bewerk dit bericht">✏️</button>
+                  )}
+                  {isMine && (
+                    <button className="btn-retract" onClick={() => handleTerugtrekken(b)} title="Trek bericht terug" aria-label="Trek dit bericht terug">🗑️</button>
+                  )}
+                  <span className="message-time">
+                    {formatTime(b.geleverd)}
+                    {b.laatstBewerktOp && (
+                      <button
+                        className="btn-edited"
+                        onClick={() => openVersieHistorie(b)}
+                        title="Klik om bewerkgeschiedenis te bekijken"
+                      >
+                        (bewerkt)
+                      </button>
+                    )}
+                  </span>
                   {/* Toon status alleen onder eigen berichten: ✓ verzonden, ✓✓ gelezen */}
                   {isMine && (() => {
                     const readByOthers = new Set(
@@ -579,6 +768,8 @@ export default function ChatView({ user, gesprek, onBack }) {
                     );
                   })()}
                 </div>
+                  </>
+                )}
               </div>
             </div>
           );

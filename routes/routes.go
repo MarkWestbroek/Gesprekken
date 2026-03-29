@@ -86,6 +86,11 @@ func Register(r *gin.Engine, h *handlers.Handler) {
 	v1.GET("/gesprekken/:id/bijdragen", h.ListBijdragen)
 	v1.POST("/gesprekken/:id/bijdragen", h.CreateBijdrage)
 	v1.GET("/gesprekken/:id/bijdragen/:bijdrageId", h.GetBijdrage)
+	v1.PUT("/gesprekken/:id/bijdragen/:bijdrageId", h.UpdateBijdrage)
+	v1.PATCH("/gesprekken/:id/bijdragen/:bijdrageId", h.PatchBijdrage)
+
+	// Versiehistorie (genest onder bijdragen)
+	v1.GET("/gesprekken/:id/bijdragen/:bijdrageId/versies", h.ListBijdrageVersies)
 
 	// Lezingen (genest onder bijdragen)
 	v1.GET("/gesprekken/:id/bijdragen/:bijdrageId/lezingen", h.ListLezingen)

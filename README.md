@@ -15,7 +15,8 @@ Het systeem beheert vier kernbegrippen:
 | **Gesprek** | Een conversatie met een onderwerp, een aanvangstijdstip en een optioneel eindtijdstip. Dit is het root-object. |
 | **Deelnemertype** | Opzoektabel die het type deelnemer classificeert: *interne_actor* (medewerker) of *partij* (externe deelnemer). |
 | **Gespreksdeelnemer** | Een persoon of actor, geïdentificeerd door een naam, een externe URN-referentie en een deelnemertype. Bestaat onafhankelijk van gesprekken. |
-| **Gespreksbijdrage** | Een bericht (markdown-tekst) dat door één deelnemer op een bepaald moment binnen een gesprek wordt geleverd. |
+| **Gespreksbijdrage** | Een bericht (markdown-tekst) dat door één deelnemer op een bepaald moment binnen een gesprek wordt geleverd. Kan naderhand worden bewerkt, waarbij alle vorige versies bewaard blijven als audit trail. |
+| **GespreksbijdrageVersie** | Een eerdere versie van een bewerkt bericht. Bevat de originele tekst en het tijdstip waarop die versie gold. Wordt automatisch aangemaakt bij elke bewerking. |
 
 ### Relaties
 
@@ -32,8 +33,11 @@ Gespreksdeelnemer ◄──── GesprekDeelname ────► Gesprek
   Gespreksbijdrage ◄───────────────────────── Gesprek
         │                  (0..*)
         │
-        ▼ gelezen door (1..*)
-  BijdrageLezing ──────► Gespreksdeelnemer
+        ├──► BijdrageLezing ──────► Gespreksdeelnemer
+        │     gelezen door (0..*)
+        │
+        └──► GespreksbijdrageVersie
+              versiehistorie (0..*)
 ```
 
 - **Deelnemertype → Gespreksdeelnemer**: elke deelnemer heeft precies één type (verplicht). De opzoektabel bevat `interne_actor` (medewerker) en `partij` (externe deelnemer).
@@ -41,6 +45,7 @@ Gespreksdeelnemer ◄──── GesprekDeelname ────► Gesprek
 - **Gesprek → Gespreksbijdrage**: een gesprek bevat nul of meer bijdragen (1:N).
 - **Gespreksbijdrage → Gespreksdeelnemer**: elke bijdrage heeft precies één bijdrager.
 - **Gespreksbijdrage → BijdrageLezing**: een bijdrage kan door één of meer andere deelnemers (niet de bijdrager) worden gelezen. Per lezing wordt het tijdstip vastgelegd.
+- **Gespreksbijdrage → GespreksbijdrageVersie**: bij elke bewerking wordt de vorige tekst bewaard als versie. Versies zijn oplopend genummerd (1 = eerste origineel, 2 = na eerste bewerking, enz.). Dit is een append-only audit trail: versies worden nooit verwijderd of gewijzigd.
 
 ### Markdown als tekst-formaat
 
@@ -60,7 +65,7 @@ Gesprekken/
 ├── openapi.json            # OAS 3.1 specificatie
 │
 ├── model/
-│   └── models.go           # Bun ORM structs (5 entiteiten)
+│   └── models.go           # Bun ORM structs (7 entiteiten incl. versiehistorie)
 │
 ├── dbsetup/
 │   └── setup.go            # Database aanmaken, verbinden, tabellen migreren
@@ -98,6 +103,27 @@ De React/Vite-frontend ondersteunt een chatervaring met een aantal expliciete UI
 - Nieuwe berichten worden aangekondigd met een knop rechts-onder in plaats van direct in beeld te forceren.
 - Leesbevestigingen volgen zichtbaarheid in de viewport in plaats van alleen het ophalen via polling.
 - Berichtstatus onder eigen berichten gebruikt één of twee vinkjes met grijs/donkerblauw onderscheid voor gedeeltelijk of volledig gelezen.
+
+### Bewerken van berichten
+
+- Eigen berichten kunnen worden bewerkt via een ✏️ knop die verschijnt bij hover.
+- Bij klikken opent een inline bewerkvenster met de huidige tekst. Enter = opslaan, Escape = annuleren.
+- Na bewerking verschijnt *(bewerkt)* naast het tijdstip. Het bericht blijft op het oorspronkelijke tijdstip staan.
+- Klik op *(bewerkt)* opent een modal met de volledige bewerkgeschiedenis (alle vorige versies + de huidige).
+- Alleen de oorspronkelijke bijdrager mag zijn eigen berichten bewerken (afgedwongen in de backend).
+- Bijlagen (afbeeldingen en documenten) zijn onwijzigbaar: eenmaal verzonden is verzonden. Dit past bij de overheidscontext waarin transparantie en audit trail essentieel zijn.
+
+### Terugtrekken van berichten
+
+- Eigen berichten kunnen worden teruggetrokken via een 🗑️ knop die verschijnt bij hover.
+- Na bevestiging wordt het bericht gemarkeerd als teruggetrokken. Het bericht wordt niet verwijderd.
+- Andere deelnemers zien "Bericht is verwijderd" op de plek van het bericht.
+- Via "Bekijk origineel" is het oorspronkelijke bericht (tekst en bijlagen) nog steeds opvraagbaar — dit is essentieel voor de overheidscontext.
+- Een teruggetrokken bericht kan niet meer bewerkt worden.
+- Terugtrekken is alleen beschikbaar voor de oorspronkelijke bijdrager (afgedwongen in de backend).
+
+### Overige UX-details
+
 - Datumseparator gebruikt **Gisteren** voor berichten van de vorige kalenderdag.
 - URL's in berichten worden klikbaar gemaakt en tonen een compacte preview-kaart op berichtniveau.
 - Tijdens typen wordt de eerste URL ook al in een lichte voorvertoning getoond boven de composer.
@@ -136,7 +162,8 @@ HTTP Request
 | `deelnemertypen` | `id` (UUID) | `code` (unique), `naam` — opzoektabel met standaardwaarden `interne_actor` en `partij` |
 | `gespreksdeelnemers` | `id` (UUID) | `naam`, `referentie` (URN), `type_id` (FK → deelnemertypen) |
 | `gesprek_deelnames` | `id` (UUID) | `gesprek_id` (FK), `deelnemer_id` (FK), `aanvang`, `einde` (nullable) |
-| `gespreksbijdragen` | `id` (UUID) | `gesprek_id` (FK), `bijdrager_id` (FK), `geleverd`, `tekst` |
+| `gespreksbijdragen` | `id` (UUID) | `gesprek_id` (FK), `bijdrager_id` (FK), `geleverd`, `tekst`, `laatst_bewerkt_op` (nullable), `teruggetrokken` (bool, default false) |
+| `gespreksbijdrage_versies` | `id` (UUID) | `bijdrage_id` (FK), `versie` (int, unique per bijdrage), `tekst`, `gewijzigd_op` |
 | `bijdrage_lezingen` | `id` (UUID) | `bijdrage_id` (FK), `lezer_id` (FK), `gelezen_op` |
 | `documenten` | `id` (UUID) | `naam`, `bron_type`, `bron_id` (FK), `content_type`, `grootte`, `bucket_key`, `opgeslagen_op`, `bijdrage_id` (FK, nullable) |
 
@@ -188,6 +215,14 @@ Basis-URL: `http://localhost:8080/v1`
 | `GET` | `/gesprekken/{id}/bijdragen` | Bijdragen binnen een gesprek |
 | `POST` | `/gesprekken/{id}/bijdragen` | Bijdrage toevoegen |
 | `GET` | `/gesprekken/{id}/bijdragen/{bijdrageId}` | Enkele bijdrage met lezingen |
+| `PUT` | `/gesprekken/{id}/bijdragen/{bijdrageId}` | Bijdragetekst bewerken (alleen door oorspronkelijke bijdrager) |
+| `PATCH` | `/gesprekken/{id}/bijdragen/{bijdrageId}` | Bijdrage terugtrekken (soft-delete, alleen door oorspronkelijke bijdrager) |
+
+### Versiehistorie (genest onder bijdragen)
+
+| Methode | Pad | Beschrijving |
+|---|---|---|
+| `GET` | `/gesprekken/{id}/bijdragen/{bijdrageId}/versies` | Bewerkgeschiedenis van een bijdrage |
 
 ### Lezingen (genest onder bijdragen)
 
@@ -224,7 +259,7 @@ Basis-URL: `http://localhost:8080/v1`
 | `/core/version-header` | `API-Version: 1.0.0` header in elk response |
 | `/core/date-time/format` | Alle datum/tijd-velden: `type: string, format: date-time` |
 | `/core/nested-child` | Child resources genest: `/gesprekken/{id}/bijdragen` |
-| `/core/http-methods` | Alleen standaard HTTP-methoden: GET, POST, PATCH, DELETE |
+| `/core/http-methods` | Alleen standaard HTTP-methoden: GET, POST, PUT, PATCH, DELETE |
 | `/core/error-handling/problem-details` | Foutresponses in `application/problem+json` (RFC 9457) |
 | `/core/error-handling/invalid-input` | Statuscode 400 bij ongeldige invoer |
 | `/core/doc-openapi` | OAS 3.1 document aanwezig |
@@ -277,7 +312,8 @@ De applicatie:
 3. Maakt alle tabellen aan (`IF NOT EXISTS`)
 4. Vult de opzoektabel `deelnemertypen` met standaardwaarden (`interne_actor`, `partij`)
 5. Migreert de `type_id` kolom op bestaande `gespreksdeelnemers` (idempotent)
-6. Start de Gin HTTP-server op poort 8080
+6. Migreert de `laatst_bewerkt_op` en `teruggetrokken` kolommen op `gespreksbijdragen` en maakt de `gespreksbijdrage_versies` tabel aan (idempotent)
+7. Start de Gin HTTP-server op poort 8080
 
 ### Starten vanuit VS Code
 
@@ -328,6 +364,19 @@ curl -X POST http://localhost:8080/v1/gesprekken/{gesprekId}/bijdragen \
 curl -X POST http://localhost:8080/v1/gesprekken/{gesprekId}/bijdragen/{bijdrageId}/lezingen \
   -H "Content-Type: application/json" \
   -d '{"lezerId": "{bobId}", "gelezenOp": "2026-03-23T10:06:00Z"}'
+
+# Bijdrage bewerken (alleen de oorspronkelijke bijdrager)
+curl -X PUT http://localhost:8080/v1/gesprekken/{gesprekId}/bijdragen/{bijdrageId} \
+  -H "Content-Type: application/json" \
+  -d '{"bijdragerId": "{aliceId}", "tekst": "# Voorstel\n\nLaten we beginnen met de **roadmap** voor Q2."}'
+
+# Versiehistorie bekijken
+curl http://localhost:8080/v1/gesprekken/{gesprekId}/bijdragen/{bijdrageId}/versies
+
+# Bijdrage terugtrekken (soft-delete, alleen de oorspronkelijke bijdrager)
+curl -X PATCH http://localhost:8080/v1/gesprekken/{gesprekId}/bijdragen/{bijdrageId} \
+  -H "Content-Type: application/json" \
+  -d '{"bijdragerId": "{aliceId}", "teruggetrokken": true}'
 ```
 
 ### OpenAPI-specificatie bekijken

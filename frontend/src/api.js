@@ -68,6 +68,44 @@ export function createBijdrage(gesprekId, bijdragerId, tekst, bijlageIds = [], r
 }
 
 /**
+ * Bewerk de tekst van een bestaande bijdrage (PUT).
+ * Alleen de oorspronkelijke bijdrager mag dit doen.
+ */
+export function updateBijdrage(gesprekId, bijdrageId, bijdragerId, tekst) {
+  return fetchJSON(
+    `/gesprekken/${encodeURIComponent(gesprekId)}/bijdragen/${encodeURIComponent(bijdrageId)}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ bijdragerId, tekst }),
+    }
+  );
+}
+
+/**
+ * Haal de versiehistorie van een bijdrage op
+ * (GET /gesprekken/:gesprekId/bijdragen/:bijdrageId/versies).
+ */
+export function listBijdrageVersies(gesprekId, bijdrageId) {
+  return fetchJSON(
+    `/gesprekken/${encodeURIComponent(gesprekId)}/bijdragen/${encodeURIComponent(bijdrageId)}/versies`
+  );
+}
+
+/**
+ * Trek een bijdrage terug (PATCH).
+ * Het bericht wordt niet verwijderd maar gemarkeerd als teruggetrokken.
+ */
+export function trekBijdrageTerug(gesprekId, bijdrageId, bijdragerId) {
+  return fetchJSON(
+    `/gesprekken/${encodeURIComponent(gesprekId)}/bijdragen/${encodeURIComponent(bijdrageId)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ bijdragerId, teruggetrokken: true }),
+    }
+  );
+}
+
+/**
  * Registreer dat een deelnemer een bijdrage heeft gelezen
  * (POST /gesprekken/:gesprekId/bijdragen/:bijdrageId/lezingen).
  * Het tijdstip (gelezenOp) wordt automatisch op nu gezet.
