@@ -20,24 +20,55 @@ Het systeem beheert vier kernbegrippen:
 
 ### Relaties
 
-```
-Deelnemertype (opzoektabel: interne_actor / partij)
-        ▲
-        │ type (1)
-        │
-Gespreksdeelnemer ◄──── GesprekDeelname ────► Gesprek
-       (M)            aanvang / einde           (N)
-        │
-        │ bijdrager (1)
-        ▼
-  Gespreksbijdrage ◄───────────────────────── Gesprek
-        │                  (0..*)
-        │
-        ├──► BijdrageLezing ──────► Gespreksdeelnemer
-        │     gelezen door (0..*)
-        │
-        └──► GespreksbijdrageVersie
-              versiehistorie (0..*)
+```mermaid
+classDiagram
+    class Deelnemertype {
+        +string code
+        +string naam
+    }
+    class Gespreksdeelnemer {
+        +string naam
+        +string referentie
+    }
+    class Gesprek {
+        +string onderwerp
+        +datetime aanvang
+        +datetime einde
+    }
+    class GesprekDeelname {
+        +datetime aanvang
+        +datetime einde
+    }
+    class Gespreksbijdrage {
+        +markdown tekst
+        +datetime geleverd
+        +datetime laatst_bewerkt_op
+        +bool teruggetrokken
+    }
+    class BijdrageLezing {
+        +datetime gelezen_op
+    }
+    class GespreksbijdrageVersie {
+        +int versie
+        +markdown tekst
+        +datetime gewijzigd_op
+    }
+    class Document {
+        +string naam
+        +string content_type
+        +int grootte
+        +string bucket_key
+    }
+
+    Deelnemertype "1" <-- "0..*" Gespreksdeelnemer : type
+    Gesprek "1" *-- "0..*" GesprekDeelname : deelnames
+    Gespreksdeelnemer "1" -- "0..*" GesprekDeelname : deelnemer
+    Gesprek "1" *-- "0..*" Gespreksbijdrage : bijdragen
+    Gespreksdeelnemer "1" -- "0..*" Gespreksbijdrage : bijdrager
+    Gespreksbijdrage "1" *-- "0..*" BijdrageLezing : lezingen
+    Gespreksdeelnemer "1" -- "0..*" BijdrageLezing : lezer
+    Gespreksbijdrage "1" *-- "0..*" GespreksbijdrageVersie : versies
+    Gespreksbijdrage "1" *-- "0..*" Document : bijlagen
 ```
 
 - **Deelnemertype → Gespreksdeelnemer**: elke deelnemer heeft precies één type (verplicht). De opzoektabel bevat `interne_actor` (medewerker) en `partij` (externe deelnemer).
@@ -60,21 +91,29 @@ De tekst van een bijdrage is `string` in het datamodel. In de OAS-specificatie i
 ```
 Gesprekken/
 ├── main.go                 # Entrypoint: configuratie, database, Gin-server
-├── .env                    # Environment variabelen (database, poort, debug)
+├── .env                    # Environment variabelen (database, MinIO, poort, debug)
 ├── go.mod / go.sum         # Go module definitie en dependency sums
 ├── openapi.json            # OAS 3.1 specificatie
+├── docker-compose.yml      # PostgreSQL + MinIO (lokale ontwikkelomgeving)
 │
 ├── model/
-│   └── models.go           # Bun ORM structs (7 entiteiten incl. versiehistorie)
+│   └── models.go           # Bun ORM structs (8 entiteiten incl. Document)
 │
 ├── dbsetup/
 │   └── setup.go            # Database aanmaken, verbinden, tabellen migreren
 │
 ├── handlers/
-│   └── handlers.go         # Gin handlers (CRUD per resource)
+│   ├── handlers.go         # Gin handlers (CRUD per resource)
+│   └── document_handlers.go # Upload, download en metadata van bijlagen
 │
-└── routes/
-    └── routes.go           # Route-registratie, CORS, versie- en security-headers
+├── storage/
+│   └── storage.go          # MinIO S3-client (upload, download, verwijder bijlagen)
+│
+├── routes/
+│   └── routes.go           # Route-registratie, CORS, versie- en security-headers
+│
+└── frontend/               # React/Vite frontend
+    └── src/
 ```
 
 ### Technologie-stack
@@ -84,6 +123,7 @@ Gesprekken/
 | Webframework | [Gin](https://github.com/gin-gonic/gin) | v1.12 |
 | ORM | [Bun](https://bun.uptrace.dev/) | v1.2 |
 | Database | PostgreSQL | 14+ |
+| Object storage | [MinIO](https://min.io/) (S3-compatible) | via Docker |
 | UUID | [google/uuid](https://github.com/google/uuid) | v1.6 |
 | Configuratie | [godotenv](https://github.com/joho/godotenv) | v1.5 |
 
@@ -140,11 +180,15 @@ HTTP Request
      ▼
   handlers/     ← Request binding, validatie, Bun queries, response
      │
-     ▼
-  model/        ← Go structs met Bun tags (tabel-mapping, relaties)
-     │
-     ▼
-  dbsetup/      ← Eenmalig: database + tabellen aanmaken
+     ├──────────────────────────────────────┐
+     │                                      │
+     ▼                                      ▼
+  model/        ← Go structs met Bun tags   storage/  ← MinIO S3-client
+  (tabel-mapping, relaties)                 (upload/download bijlagen)
+     │                                      │
+     ▼                                      ▼
+  dbsetup/      ← Database + tabellen    MinIO       ← S3-compatible
+  aanmaken (idempotent)                  object storage (lokaal via Docker)
      │
      ▼
   PostgreSQL
@@ -168,6 +212,79 @@ HTTP Request
 | `documenten` | `id` (UUID) | `naam`, `bron_type`, `bron_id` (FK), `content_type`, `grootte`, `bucket_key`, `opgeslagen_op`, `bijdrage_id` (FK, nullable) |
 
 Alle ID's zijn UUID's (gegenereerd door PostgreSQL via `gen_random_uuid()`). Alle tijdstempels zijn `timestamptz` (UTC in responses conform ADR).
+
+### ER-diagram
+
+```mermaid
+erDiagram
+    gesprekken {
+        uuid id PK
+        string onderwerp
+        timestamptz aanvang
+        timestamptz einde
+    }
+    deelnemertypen {
+        uuid id PK
+        string code UK
+        string naam
+    }
+    gespreksdeelnemers {
+        uuid id PK
+        string naam
+        string referentie
+        uuid type_id FK
+    }
+    gesprek_deelnames {
+        uuid id PK
+        uuid gesprek_id FK
+        uuid deelnemer_id FK
+        timestamptz aanvang
+        timestamptz einde
+    }
+    gespreksbijdragen {
+        uuid id PK
+        uuid gesprek_id FK
+        uuid bijdrager_id FK
+        timestamptz geleverd
+        text tekst
+        timestamptz laatst_bewerkt_op
+        boolean teruggetrokken
+    }
+    gespreksbijdrage_versies {
+        uuid id PK
+        uuid bijdrage_id FK
+        int versie
+        text tekst
+        timestamptz gewijzigd_op
+    }
+    bijdrage_lezingen {
+        uuid id PK
+        uuid bijdrage_id FK
+        uuid lezer_id FK
+        timestamptz gelezen_op
+    }
+    documenten {
+        uuid id PK
+        string naam
+        string bron_type
+        uuid bron_id
+        string content_type
+        bigint grootte
+        string bucket_key
+        timestamptz opgeslagen_op
+        uuid bijdrage_id FK
+    }
+
+    gesprekken ||--o{ gesprek_deelnames : "heeft"
+    gespreksdeelnemers ||--o{ gesprek_deelnames : "neemt deel"
+    deelnemertypen ||--o{ gespreksdeelnemers : "type"
+    gesprekken ||--o{ gespreksbijdragen : "bevat"
+    gespreksdeelnemers ||--o{ gespreksbijdragen : "bijdrager"
+    gespreksbijdragen ||--o{ gespreksbijdrage_versies : "versies"
+    gespreksbijdragen ||--o{ bijdrage_lezingen : "lezingen"
+    gespreksdeelnemers ||--o{ bijdrage_lezingen : "lezer"
+    gespreksbijdragen |o--o{ documenten : "bijlagen"
+```
 
 ---
 
@@ -283,6 +400,13 @@ Alle configuratie gaat via environment variabelen (`.env`):
 | `PORT` | `8080` | HTTP-poort |
 | `GIN_MODE` | `debug` | Gin modus (`debug` / `release`) |
 | `BUNDEBUG` | `0` | `1` = uitgebreide SQL-logging |
+| `MINIO_ENDPOINT` | `localhost:9000` | MinIO S3 API endpoint |
+| `MINIO_ACCESS_KEY` | `minioadmin` | Toegangssleutel voor MinIO |
+| `MINIO_SECRET_KEY` | `minioadmin` | Geheime sleutel voor MinIO |
+| `MINIO_BUCKET` | `gesprekken-documenten` | Bucketnaam voor documentbijlagen |
+| `MINIO_USE_SSL` | `false` | SSL gebruiken voor MinIO-verbinding |
+
+Zie ook [storage/STORAGE.md](storage/STORAGE.md) voor uitgebreide MinIO-configuratie en troubleshooting.
 
 ---
 
@@ -293,6 +417,21 @@ Alle configuratie gaat via environment variabelen (`.env`):
 - Go 1.22+
 - PostgreSQL 14+ draaiend op `localhost:5432`
 - Gebruiker `postgres` met wachtwoord `1234`
+- Docker (voor MinIO object storage)
+
+### MinIO starten
+
+```bash
+# Alleen MinIO
+docker compose up -d minio
+
+# Volledige stack (PostgreSQL + MinIO)
+docker compose up -d
+```
+
+MinIO is daarna bereikbaar op:
+- S3 API: `http://localhost:9000`
+- Webconsole: `http://localhost:9011` (login: `minioadmin` / `minioadmin`)
 
 ### Starten
 
@@ -313,7 +452,8 @@ De applicatie:
 4. Vult de opzoektabel `deelnemertypen` met standaardwaarden (`interne_actor`, `partij`)
 5. Migreert de `type_id` kolom op bestaande `gespreksdeelnemers` (idempotent)
 6. Migreert de `laatst_bewerkt_op` en `teruggetrokken` kolommen op `gespreksbijdragen` en maakt de `gespreksbijdrage_versies` tabel aan (idempotent)
-7. Start de Gin HTTP-server op poort 8080
+7. Maakt verbinding met MinIO en initialiseert de bucket `gesprekken-documenten` (automatisch aangemaakt als die nog niet bestaat)
+8. Start de Gin HTTP-server op poort 8080
 
 ### Starten vanuit VS Code
 
@@ -377,6 +517,19 @@ curl http://localhost:8080/v1/gesprekken/{gesprekId}/bijdragen/{bijdrageId}/vers
 curl -X PATCH http://localhost:8080/v1/gesprekken/{gesprekId}/bijdragen/{bijdrageId} \
   -H "Content-Type: application/json" \
   -d '{"bijdragerId": "{aliceId}", "teruggetrokken": true}'
+
+# Bijlage uploaden bij een bijdrage (multipart/form-data)
+curl -X POST http://localhost:8080/v1/documenten \
+  -F "bestand=@/pad/naar/bestand.pdf" \
+  -F "naam=bestand.pdf" \
+  -F "brontype=gespreksbijlage" \
+  -F "bronId={bijdrageId}"
+
+# Bijlage metadata opvragen
+curl http://localhost:8080/v1/documenten/{documentId}
+
+# Bijlage downloaden
+curl -o bestand.pdf http://localhost:8080/v1/documenten/{documentId}/download
 ```
 
 ### OpenAPI-specificatie bekijken
